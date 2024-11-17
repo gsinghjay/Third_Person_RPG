@@ -1,22 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
 
-public class PlayerMovementTutorial : MonoBehaviour
+public class PlayerMovement : MonoBehaviour
 {
+    [Header("References")]
+    [SerializeField] private Transform orientation; // Make this public or SerializeField
+    
     [Header("Movement")]
     public float moveSpeed;
-
     public float groundDrag;
-
     public float jumpForce;
     public float jumpCooldown;
     public float airMultiplier;
-    bool readyToJump;
 
-    [HideInInspector] public float walkSpeed;
-    [HideInInspector] public float sprintSpeed;
+    private bool readyToJump = true;
 
     [Header("Keybinds")]
     public KeyCode jumpKey = KeyCode.Space;
@@ -24,43 +22,40 @@ public class PlayerMovementTutorial : MonoBehaviour
     [Header("Ground Check")]
     public float playerHeight;
     public LayerMask whatIsGround;
-    bool grounded;
 
-    public Transform orientation;
+    private bool grounded;
 
-    float horizontalInput;
-    float verticalInput;
+    private float horizontalInput;
+    private float verticalInput;
 
-    Vector3 moveDirection;
+    private Vector3 moveDirection;
 
-    Rigidbody rb;
+    private Rigidbody rb;
+    private PlayerAnimator playerAnimator;
 
     private void Start()
     {
+        // Get required components
         rb = GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            Debug.LogError("Rigidbody missing on " + gameObject.name);
+            return;
+        }
         rb.freezeRotation = true;
 
-        readyToJump = true;
-    }
+        // Get PlayerAnimator from the character model
+        playerAnimator = GetComponentInChildren<PlayerAnimator>();
+        if (playerAnimator == null)
+        {
+            Debug.LogError("PlayerAnimator component missing in children of " + gameObject.name);
+        }
 
-    private void Update()
-    {
-        // ground check
-        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.3f, whatIsGround);
-
-        MyInput();
-        SpeedControl();
-
-        // handle drag
-        if (grounded)
-            rb.drag = groundDrag;
-        else
-            rb.drag = 0;
-    }
-
-    private void FixedUpdate()
-    {
-        MovePlayer();
+        // Verify orientation reference
+        if (orientation == null)
+        {
+            Debug.LogError("Orientation transform not assigned on " + gameObject.name);
+        }
     }
 
     private void MyInput()
@@ -68,37 +63,70 @@ public class PlayerMovementTutorial : MonoBehaviour
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput = Input.GetAxisRaw("Vertical");
 
-        // when to jump
-        if(Input.GetKey(jumpKey) && readyToJump && grounded)
+        // Jump input
+        if (Input.GetKey(jumpKey) && readyToJump && grounded)
         {
             readyToJump = false;
-
             Jump();
-
             Invoke(nameof(ResetJump), jumpCooldown);
         }
+
+        // Example triggers for Victory and Death - MODIFIED to use specific keys
+        // Only trigger these animations if we're not already in those states
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            playerAnimator?.TriggerVictory();
+        }
+
+        if (Input.GetKeyDown(KeyCode.K)) // Changed from 'D' to 'K' to avoid conflict with movement
+        {
+            playerAnimator?.TriggerDie();
+        }
+    }
+
+    private void Update()
+    {
+        // Ground check
+        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.3f, whatIsGround);
+
+        MyInput();
+        SpeedControl();
+
+        // Handle drag
+        rb.drag = grounded ? groundDrag : 0f;
+
+        // Update animation state
+        // Only update movement animation if we're not in death or victory state
+        bool isMoving = (horizontalInput != 0 || verticalInput != 0);
+        playerAnimator?.SetIsMoving(isMoving);
+    }
+    private void FixedUpdate()
+    {
+        MovePlayer();
     }
 
     private void MovePlayer()
     {
-        // calculate movement direction
+        // Calculate movement direction
         moveDirection = orientation.forward * verticalInput + orientation.right * horizontalInput;
 
-        // on ground
-        if(grounded)
+        // Apply movement forces
+        if (grounded)
+        {
             rb.AddForce(moveDirection.normalized * moveSpeed * 10f, ForceMode.Force);
-
-        // in air
-        else if(!grounded)
+        }
+        else
+        {
             rb.AddForce(moveDirection.normalized * moveSpeed * 10f * airMultiplier, ForceMode.Force);
+        }
     }
 
     private void SpeedControl()
     {
         Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
 
-        // limit velocity if needed
-        if(flatVel.magnitude > moveSpeed)
+        // Limit velocity if needed
+        if (flatVel.magnitude > moveSpeed)
         {
             Vector3 limitedVel = flatVel.normalized * moveSpeed;
             rb.velocity = new Vector3(limitedVel.x, rb.velocity.y, limitedVel.z);
@@ -107,11 +135,13 @@ public class PlayerMovementTutorial : MonoBehaviour
 
     private void Jump()
     {
-        // reset y velocity
+        // Reset Y velocity
         rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
 
+        // Apply jump force
         rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
     }
+
     private void ResetJump()
     {
         readyToJump = true;
