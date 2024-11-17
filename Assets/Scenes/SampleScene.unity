@@ -131,7 +131,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 82985485}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -168,7 +168,7 @@ GameObject:
   - component: {fileID: 226876329}
   - component: {fileID: 226876328}
   - component: {fileID: 226876327}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain_(0.00, 0.00, -1000.00)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -440,14 +440,6 @@ MonoBehaviour:
   playerObj: {fileID: 591683579}
   rb: {fileID: 1053771453}
   freeLookCam: {fileID: 600671644}
-  rotationSpeed: 7
-  doubleJumpHeight: 50
-  doubleJumpDistance: 7
-  defaultMiddleRigRadius: 7
-  doubleJumpMiddleRigRadius: 10
-  transitionSpeed: 5
-  doubleJumpYAngle: 0.5
-  doubleJumpXAngle: 180
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -1040,7 +1032,7 @@ GameObject:
   - component: {fileID: 858292445}
   - component: {fileID: 858292444}
   - component: {fileID: 858292443}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain_(-1000.00, 0.00, 0.00)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1149,7 +1141,7 @@ Rigidbody:
   m_GameObject: {fileID: 1053771452}
   serializedVersion: 4
   m_Mass: 1
-  m_Drag: 5
+  m_Drag: 0
   m_AngularDrag: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
@@ -1203,11 +1195,11 @@ MonoBehaviour:
   jumpForce: 6
   jumpCooldown: 0.25
   airMultiplier: 0.4
-  playerHeight: 2
-  maxJumpCount: 1
+  playerHeight: 1.4
   groundLayer:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 64
+  groundCheckRadius: 0.3
   groundCheckDistance: 0.2
   jumpKey: 32
 --- !u!1 &1085663849
@@ -1475,7 +1467,7 @@ GameObject:
   - component: {fileID: 1181832496}
   - component: {fileID: 1181832495}
   - component: {fileID: 1181832494}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain_(-1000.00, 0.00, -1000.00)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1739,8 +1731,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1361056910}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1.27, y: 4.13, z: 3.32}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1868,7 +1860,7 @@ GameObject:
   - component: {fileID: 1819066615}
   - component: {fileID: 1819066614}
   - component: {fileID: 1819066613}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1984,7 +1976,7 @@ CapsuleCollider:
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.2
-  m_Height: 1.4
+  m_Height: 1.3
   m_Direction: 1
   m_Center: {x: 0, y: 0.7, z: 0}
 --- !u!114 &2136036262

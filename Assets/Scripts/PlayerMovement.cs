@@ -1,4 +1,3 @@
-using System.Collections; 
 using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
@@ -8,19 +7,18 @@ public class PlayerMovement : MonoBehaviour
     
     [Header("Movement")]
     public float moveSpeed = 5f;
-    public float rotationSpeed = 10f;  // Add this line
+    public float rotationSpeed = 10f;
     public float groundDrag = 5f;
-    public float jumpForce = 12f;
+    
+    [Header("Jump Settings")]
+    public float jumpForce = 7f;
     public float jumpCooldown = 0.25f;
     public float airMultiplier = 0.4f;
     public float playerHeight = 2f;
 
-    [Header("Jump Settings")]
-    public int maxJumpCount = 2;
-    private int jumpCount = 0;
-
     [Header("Ground Check")]
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private float groundCheckRadius = 0.3f;
     [SerializeField] private float groundCheckDistance = 0.2f;
 
     [Header("Keybinds")]
@@ -37,51 +35,62 @@ public class PlayerMovement : MonoBehaviour
 
     private void Start()
     {
+        // Get components
         rb = GetComponent<Rigidbody>();
-        rb.freezeRotation = true;
         playerAnimator = GetComponentInChildren<PlayerAnimator>();
-        readyToJump = true;
+
+        // Configure rigidbody
+        rb.freezeRotation = true;
+        
+        // Lock cursor for game
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
-    private void Update()
-    {
-        bool wasGrounded = grounded;
-        // Ground check
-        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + groundCheckDistance, groundLayer);
-        
-        // Reset jump count when grounded
-        if (grounded)
-        {
-            jumpCount = 0;
-        }
-        
-        // Check if we just landed
-        if (!wasGrounded && grounded && playerAnimator != null)
-        {
-            playerAnimator.TriggerLand();
-        }
-        
-        MyInput();
-        SpeedControl();
-        
-        // Handle drag
-        rb.drag = grounded ? groundDrag : 0f;
-    }
+private void Update()
+{
+    // Ground check with debug
+    grounded = Physics.CheckSphere(
+        transform.position - new Vector3(0, playerHeight * 0.5f, 0),
+        groundCheckRadius,
+        groundLayer
+    );
+    
+    Debug.Log($"Ground Check - Position: {transform.position}, Height Offset: {playerHeight * 0.5f}, Is Grounded: {grounded}");
 
-    private void FixedUpdate()
-    {
-        MovePlayer();
-    }
+    MyInput();
+    
+    // Handle drag with debug
+    rb.drag = grounded ? groundDrag : 0f;
+    Debug.Log($"Current Drag: {rb.drag}, Velocity: {rb.velocity}");
+}
+
+private void FixedUpdate()
+{
+    MovePlayer();
+    SpeedControl();
+    
+    // Debug physics state
+    Debug.Log($"FixedUpdate - Position: {transform.position}, Velocity: {rb.velocity}, IsKinematic: {rb.isKinematic}");
+}
+
+private void OnCollisionEnter(Collision collision)
+{
+    Debug.Log($"Collision Enter with: {collision.gameObject.name}, Normal: {collision.contacts[0].normal}");
+}
+
+private void OnCollisionStay(Collision collision)
+{
+    Debug.Log($"Collision Stay with: {collision.gameObject.name}, Contact Count: {collision.contactCount}");
+}
 
     private void MyInput()
     {
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput = Input.GetAxisRaw("Vertical");
 
-        // Calculate if we're moving
+        // Handle movement animation
         bool isMoving = (Mathf.Abs(horizontalInput) > 0.1f || Mathf.Abs(verticalInput) > 0.1f);
-        
-        // Update animator
         if (playerAnimator != null)
         {
             playerAnimator.SetIsMoving(isMoving);
@@ -93,99 +102,80 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Handle jumping
-        if (Input.GetKeyDown(jumpKey) && readyToJump && jumpCount < maxJumpCount)
+        if (Input.GetKeyDown(jumpKey))
         {
-            readyToJump = false;
-            jumpCount++;
-            
-            if (jumpCount == 1)
+            Debug.Log($"Jump key pressed. Grounded: {grounded}, ReadyToJump: {readyToJump}");
+            if (readyToJump && grounded)
             {
-                Jump(false);
+                readyToJump = false;
+                Jump();
+                Invoke(nameof(ResetJump), jumpCooldown);
             }
-            else if (jumpCount == 2)
-            {
-                Jump(true);
-            }
-
-            Invoke(nameof(ResetJump), jumpCooldown);
         }
     }
 
-    private void Jump(bool isDoubleJump)
+    private void MovePlayer()
     {
-        // Reset vertical velocity before jump
-        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
+            return;
+
+        // Calculate movement direction relative to camera
+        Vector3 forward = Camera.main.transform.forward;
+        Vector3 right = Camera.main.transform.right;
         
-        // Apply jump force (same for both jumps)
-        rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+        // Keep movement on the ground plane
+        forward.y = 0;
+        right.y = 0;
+        forward.Normalize();
+        right.Normalize();
         
-        // Trigger appropriate animation
-        if (playerAnimator != null)
+        moveDirection = (forward * verticalInput + right * horizontalInput).normalized;
+
+        // Only rotate if there's movement input
+        if (moveDirection != Vector3.zero)
         {
-            if (isDoubleJump)
-            {
-                playerAnimator.TriggerDoubleJump();
-            }
-            else
-            {
-                playerAnimator.TriggerJump();
-            }
-            }
+            transform.rotation = Quaternion.Lerp(
+                transform.rotation,
+                Quaternion.LookRotation(moveDirection),
+                Time.deltaTime * rotationSpeed
+            );
+        }
+
+        // Apply movement force
+        float multiplier = grounded ? 1f : airMultiplier;
+        rb.velocity = new Vector3(
+            moveDirection.x * moveSpeed * multiplier,
+            rb.velocity.y,
+            moveDirection.z * moveSpeed * multiplier
+        );
     }
 
-
-private void MovePlayer()
+private void Jump()
 {
-    if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
-        return;
-
-    // Get camera's forward and right vectors
-    Vector3 forward = Camera.main.transform.forward;
-    Vector3 right = Camera.main.transform.right;
+    Debug.Log($"Jump triggered. Grounded: {grounded}, ReadyToJump: {readyToJump}");
+    Debug.Log($"Pre-Jump Velocity: {rb.velocity}");
     
-    // Keep movement on the ground plane
-    forward.y = 0;
-    right.y = 0;
-    forward.Normalize();
-    right.Normalize();
+    // Reset y velocity
+    rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+    Debug.Log($"Reset Velocity: {rb.velocity}");
     
-    // Calculate movement direction relative to camera
-    Vector3 moveDir = (forward * verticalInput + right * horizontalInput).normalized;
-
-    // Only rotate if there's movement input
-    if (moveDir != Vector3.zero)
-    {
-        // Rotate player to face movement direction
-        transform.rotation = Quaternion.Lerp(transform.rotation, 
-            Quaternion.LookRotation(moveDir), 
-            Time.deltaTime * rotationSpeed);
-    }
-
-    // Apply movement
-    if (moveDir.magnitude > 0)
-    {
-        rb.velocity = new Vector3(moveDir.x * moveSpeed, rb.velocity.y, moveDir.z * moveSpeed);
-    }
-    else
-    {
-        // Counter sliding when no input
-        Vector3 horizontalVel = new Vector3(rb.velocity.x, 0, rb.velocity.z);
-        rb.velocity = new Vector3(horizontalVel.x * 0.9f, rb.velocity.y, horizontalVel.z * 0.9f);
-    }
-
-    // Update animator
+    // Apply jump force
+    Vector3 jumpVector = Vector3.up * jumpForce;
+    rb.AddForce(jumpVector, ForceMode.Impulse);
+    Debug.Log($"Applied Jump Force: {jumpVector}, New Velocity: {rb.velocity}");
+    
     if (playerAnimator != null)
     {
-        playerAnimator.SetIsMoving(moveDir.magnitude > 0.1f);
-        playerAnimator.SetMovementSpeed(moveDir.magnitude);
+        playerAnimator.TriggerJump();
+        Debug.Log("Jump animation triggered");
     }
 }
 
     private void SpeedControl()
     {
-        Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-
         // Limit velocity if needed
+        Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        
         if (flatVel.magnitude > moveSpeed)
         {
             Vector3 limitedVel = flatVel.normalized * moveSpeed;
@@ -196,5 +186,15 @@ private void MovePlayer()
     private void ResetJump()
     {
         readyToJump = true;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        // Visualize ground check
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(
+            transform.position - new Vector3(0, playerHeight * 0.5f, 0),
+            groundCheckRadius
+        );
     }
 }
