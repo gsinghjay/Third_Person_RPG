@@ -7,18 +7,18 @@ public class PlayerMovement : MonoBehaviour
     
     [Header("Movement")]
     public float moveSpeed = 5f;
+    public float rotationSpeed = 10f;
     public float groundDrag = 5f;
-    public float jumpForce = 12f;
+    
+    [Header("Jump Settings")]
+    public float jumpForce = 7f;
     public float jumpCooldown = 0.25f;
     public float airMultiplier = 0.4f;
     public float playerHeight = 2f;
 
-    [Header("Jump Settings")]
-    public int maxJumpCount = 2;
-    private int jumpCount = 0;
-
     [Header("Ground Check")]
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private float groundCheckRadius = 0.3f;
     [SerializeField] private float groundCheckDistance = 0.2f;
 
     [Header("Keybinds")]
@@ -35,51 +35,62 @@ public class PlayerMovement : MonoBehaviour
 
     private void Start()
     {
+        // Get components
         rb = GetComponent<Rigidbody>();
-        rb.freezeRotation = true;
         playerAnimator = GetComponentInChildren<PlayerAnimator>();
-        readyToJump = true;
+
+        // Configure rigidbody
+        rb.freezeRotation = true;
+        
+        // Lock cursor for game
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
-    private void Update()
-    {
-        bool wasGrounded = grounded;
-        // Ground check
-        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + groundCheckDistance, groundLayer);
-        
-        // Reset jump count when grounded
-        if (grounded)
-        {
-            jumpCount = 0;
-        }
-        
-        // Check if we just landed
-        if (!wasGrounded && grounded && playerAnimator != null)
-        {
-            playerAnimator.TriggerLand();
-        }
-        
-        MyInput();
-        SpeedControl();
-        
-        // Handle drag
-        rb.drag = grounded ? groundDrag : 0f;
-    }
+private void Update()
+{
+    // Ground check with debug
+    grounded = Physics.CheckSphere(
+        transform.position - new Vector3(0, playerHeight * 0.5f, 0),
+        groundCheckRadius,
+        groundLayer
+    );
+    
+    Debug.Log($"Ground Check - Position: {transform.position}, Height Offset: {playerHeight * 0.5f}, Is Grounded: {grounded}");
 
-    private void FixedUpdate()
-    {
-        MovePlayer();
-    }
+    MyInput();
+    
+    // Handle drag with debug
+    rb.drag = grounded ? groundDrag : 0f;
+    Debug.Log($"Current Drag: {rb.drag}, Velocity: {rb.velocity}");
+}
+
+private void FixedUpdate()
+{
+    MovePlayer();
+    SpeedControl();
+    
+    // Debug physics state
+    Debug.Log($"FixedUpdate - Position: {transform.position}, Velocity: {rb.velocity}, IsKinematic: {rb.isKinematic}");
+}
+
+private void OnCollisionEnter(Collision collision)
+{
+    Debug.Log($"Collision Enter with: {collision.gameObject.name}, Normal: {collision.contacts[0].normal}");
+}
+
+private void OnCollisionStay(Collision collision)
+{
+    Debug.Log($"Collision Stay with: {collision.gameObject.name}, Contact Count: {collision.contactCount}");
+}
 
     private void MyInput()
     {
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput = Input.GetAxisRaw("Vertical");
 
-        // Calculate if we're moving
+        // Handle movement animation
         bool isMoving = (Mathf.Abs(horizontalInput) > 0.1f || Mathf.Abs(verticalInput) > 0.1f);
-        
-        // Update animator
         if (playerAnimator != null)
         {
             playerAnimator.SetIsMoving(isMoving);
@@ -91,21 +102,15 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Handle jumping
-        if (Input.GetKeyDown(jumpKey) && readyToJump && jumpCount < maxJumpCount)
+        if (Input.GetKeyDown(jumpKey))
         {
-            readyToJump = false;
-            jumpCount++;
-            
-            if (jumpCount == 1)
+            Debug.Log($"Jump key pressed. Grounded: {grounded}, ReadyToJump: {readyToJump}");
+            if (readyToJump && grounded)
             {
-                Jump(false);
+                readyToJump = false;
+                Jump();
+                Invoke(nameof(ResetJump), jumpCooldown);
             }
-            else if (jumpCount == 2)
-            {
-                Jump(true);
-            }
-
-            Invoke(nameof(ResetJump), jumpCooldown);
         }
     }
 
@@ -114,9 +119,9 @@ public class PlayerMovement : MonoBehaviour
         if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
             return;
 
-        // Calculate movement direction
-        Vector3 forward = orientation.forward;
-        Vector3 right = orientation.right;
+        // Calculate movement direction relative to camera
+        Vector3 forward = Camera.main.transform.forward;
+        Vector3 right = Camera.main.transform.right;
         
         // Keep movement on the ground plane
         forward.y = 0;
@@ -124,49 +129,53 @@ public class PlayerMovement : MonoBehaviour
         forward.Normalize();
         right.Normalize();
         
-        // Calculate movement direction
-        Vector3 moveDir = (forward * verticalInput + right * horizontalInput).normalized;
+        moveDirection = (forward * verticalInput + right * horizontalInput).normalized;
 
-        // If there's no input, apply counter-force to stop sliding
-        if (Mathf.Abs(horizontalInput) < 0.1f && Mathf.Abs(verticalInput) < 0.1f)
+        // Only rotate if there's movement input
+        if (moveDirection != Vector3.zero)
         {
-            // Get the horizontal velocity
-            Vector3 horizontalVel = new Vector3(rb.velocity.x, 0, rb.velocity.z);
-            
-            // Apply counter force
-            if (horizontalVel.magnitude > 0.01f)
-            {
-                Vector3 counterForce = -horizontalVel.normalized * moveSpeed * 2f;
-                rb.AddForce(counterForce, ForceMode.Acceleration);
-            }
-            else
-            {
-                // If velocity is very low, just stop horizontal movement
-                rb.velocity = new Vector3(0f, rb.velocity.y, 0f);
-            }
-            return;
-        }
-
-        // Calculate force to apply
-        float force = moveSpeed * 10f;
-        if (!grounded)
-        {
-            force *= airMultiplier;
-        }
-        else
-        {
-            rb.AddForce(Vector3.down * 10f, ForceMode.Force);
+            transform.rotation = Quaternion.Lerp(
+                transform.rotation,
+                Quaternion.LookRotation(moveDirection),
+                Time.deltaTime * rotationSpeed
+            );
         }
 
         // Apply movement force
-        rb.AddForce(moveDir * force, ForceMode.Force);
+        float multiplier = grounded ? 1f : airMultiplier;
+        rb.velocity = new Vector3(
+            moveDirection.x * moveSpeed * multiplier,
+            rb.velocity.y,
+            moveDirection.z * moveSpeed * multiplier
+        );
     }
+
+private void Jump()
+{
+    Debug.Log($"Jump triggered. Grounded: {grounded}, ReadyToJump: {readyToJump}");
+    Debug.Log($"Pre-Jump Velocity: {rb.velocity}");
+    
+    // Reset y velocity
+    rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+    Debug.Log($"Reset Velocity: {rb.velocity}");
+    
+    // Apply jump force
+    Vector3 jumpVector = Vector3.up * jumpForce;
+    rb.AddForce(jumpVector, ForceMode.Impulse);
+    Debug.Log($"Applied Jump Force: {jumpVector}, New Velocity: {rb.velocity}");
+    
+    if (playerAnimator != null)
+    {
+        playerAnimator.TriggerJump();
+        Debug.Log("Jump animation triggered");
+    }
+}
 
     private void SpeedControl()
     {
-        Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-
         // Limit velocity if needed
+        Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        
         if (flatVel.magnitude > moveSpeed)
         {
             Vector3 limitedVel = flatVel.normalized * moveSpeed;
@@ -174,30 +183,18 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void Jump(bool isDoubleJump)
-    {
-        // Reset Y velocity
-        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-
-        // Trigger appropriate jump animation
-        if (playerAnimator != null)
-        {
-            if (isDoubleJump)
-            {
-                playerAnimator.TriggerDoubleJump();
-            }
-            else
-            {
-                playerAnimator.TriggerJump();
-            }
-        }
-
-        // Apply jump force
-        rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
-    }
-
     private void ResetJump()
     {
         readyToJump = true;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        // Visualize ground check
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(
+            transform.position - new Vector3(0, playerHeight * 0.5f, 0),
+            groundCheckRadius
+        );
     }
 }
