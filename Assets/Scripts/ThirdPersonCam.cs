@@ -1,4 +1,5 @@
 using UnityEngine;
+using Cinemachine;
 
 public class ThirdPersonCam : MonoBehaviour
 {
@@ -7,149 +8,182 @@ public class ThirdPersonCam : MonoBehaviour
     public Transform player;
     public Transform playerObj;
     public Rigidbody rb;
+    public CinemachineFreeLook freeLookCam;
+
     private PlayerAnimator playerAnimator;
-
+    
     [Header("Camera Settings")]
-    public float rotationSpeed = 7f;
-    public float followSpeed = 10f;
-    public Vector3 cameraOffset = new Vector3(0, 2, -5);
-    public float minDistance = 1f; // Add minimum distance
-    public float maxDistance = 10f; // Add maximum distance
+    [SerializeField] private float rotationSpeed = 7f;
 
-    public Transform combatLookAt;
+ [Header("Double Jump Camera")]
+    public float doubleJumpHeight = 3f;
+    public float doubleJumpDistance = 5f;
+    private Vector3 initialDoubleJumpPosition;
+    private Quaternion initialDoubleJumpRotation;
+    private bool isInDoubleJump;
+    
+    public float defaultMiddleRigRadius = 7f;
+    public float doubleJumpMiddleRigRadius = 10f;
+    public float transitionSpeed = 5f;
+    public float doubleJumpYAngle = 0.5f;  // Add this line
+    public float doubleJumpXAngle = 180f;  // Add this line 
+    private float lastXInput;
+    private float lastYInput;
 
-    public GameObject thirdPersonCam;
-    public GameObject combatCam;
-    public GameObject topDownCam;
-
-    public CameraStyle currentStyle;
-    public enum CameraStyle
-    {
-        Basic,
-        Combat,
-        Topdown
-    }
 
     private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        if (player != null)
-        {
-            playerAnimator = player.GetComponentInChildren<PlayerAnimator>();
-        }
-        
-        // Set initial camera style
-        SwitchCameraStyle(CameraStyle.Basic);
+        InitializeReferences();
     }
 
-    private void LateUpdate()
-    {
-        if (player == null) return;
-
-        HandleCameraPosition();
-        HandleCameraRotation();
-        HandleCameraStyleSwitch();
-    }
-
-private void HandleCameraPosition()
+private void InitializeReferences()
 {
-    if (player == null) return;
-
-    // Calculate desired position
-    Vector3 targetPos = player.position + cameraOffset;
-    
-    // Check for obstacles
-    RaycastHit hit;
-    Vector3 directionToCamera = (targetPos - player.position).normalized;
-    float targetDistance = cameraOffset.magnitude;
-    
-    if (Physics.Raycast(player.position, directionToCamera, out hit, targetDistance))
+    if (player != null)
     {
-        // If there's an obstacle, adjust the camera position
-        targetPos = hit.point - directionToCamera * 0.5f;
+        playerAnimator = player.GetComponentInChildren<PlayerAnimator>();
     }
-    
-    // Smoothly move camera
-    transform.position = Vector3.Lerp(transform.position, targetPos, followSpeed * Time.deltaTime);
-    
-    // Always look at player
-    transform.LookAt(player.position + Vector3.up * 1.5f); // Offset to look at upper body
+        
+    if (freeLookCam == null)
+    {
+        freeLookCam = FindObjectOfType<CinemachineFreeLook>();
+        if (freeLookCam == null)
+        {
+            Debug.LogError("No CinemachineFreeLook camera found in the scene!");
+            return;
+        }
+    }
+
+    // Configure FreeLook camera settings
+    ConfigureFreeLookCamera();
 }
 
-    private void HandleCameraRotation()
-     {
-        if (player == null) return;
+private void Update()
+    {
+        if (player == null || freeLookCam == null) return;
 
-        // Calculate view direction with safety checks
-        Vector3 viewDir = (player.position - transform.position);
-        if (viewDir.magnitude > 0.01f) // Prevent division by zero
-        {
-            orientation.forward = viewDir.normalized;
-        }
+        HandleDoubleJumpCamera();
+    }
 
-        // Handle player rotation based on camera style
-        if (currentStyle == CameraStyle.Basic || currentStyle == CameraStyle.Topdown)
+   private void HandleDoubleJumpCamera()
+    {
+        if (playerAnimator == null) return;
+
+        if (playerAnimator.IsDoubleJumping)
         {
-            HandleBasicRotation();
+            // Store initial position and rotation when double jump starts
+            if (!isInDoubleJump)
+            {
+                isInDoubleJump = true;
+                initialDoubleJumpPosition = freeLookCam.transform.position;
+                initialDoubleJumpRotation = freeLookCam.transform.rotation;
+
+                // Disable camera input during double jump
+                freeLookCam.m_XAxis.m_InputAxisValue = 0;
+                freeLookCam.m_YAxis.m_InputAxisValue = 0;
+            }
+
+            // Calculate fixed camera position during double jump
+            Vector3 playerPos = player.position;
+            Vector3 targetPos = playerPos - player.forward * doubleJumpDistance;
+            targetPos.y = playerPos.y + doubleJumpHeight;
+
+            // Smoothly move camera to target position
+            freeLookCam.transform.position = Vector3.Lerp(
+                freeLookCam.transform.position,
+                targetPos,
+                Time.deltaTime * 10f
+            );
+
+            // Ensure camera always looks at player
+            Vector3 lookDirection = (playerPos + Vector3.up - freeLookCam.transform.position).normalized;
+            freeLookCam.transform.rotation = Quaternion.LookRotation(lookDirection);
         }
-        else if (currentStyle == CameraStyle.Combat)
+        else if (isInDoubleJump)
         {
-            HandleCombatRotation();
+            // Smoothly return to normal camera behavior
+            isInDoubleJump = false;
+            
+            // Re-enable camera input
+            freeLookCam.m_XAxis.m_InputAxisValue = Input.GetAxis("Mouse X");
+            freeLookCam.m_YAxis.m_InputAxisValue = Input.GetAxis("Mouse Y");
         }
     }
 
-    private void HandleBasicRotation()
+private void ConfigureFreeLookCamera()
     {
-        float horizontalInput = Input.GetAxis("Horizontal");
-        float verticalInput = Input.GetAxis("Vertical");
-        Vector3 inputDir = orientation.forward * verticalInput + orientation.right * horizontalInput;
-
-        if (inputDir != Vector3.zero)
+        if (freeLookCam != null)
         {
-            playerObj.forward = Vector3.Slerp(playerObj.forward, inputDir.normalized, Time.deltaTime * rotationSpeed);
+            // Configure orbits
+            freeLookCam.m_Orbits[0].m_Height = 4.5f;  // Top rig
+            freeLookCam.m_Orbits[0].m_Radius = 7f;
+            
+            freeLookCam.m_Orbits[1].m_Height = 2.5f;  // Middle rig
+            freeLookCam.m_Orbits[1].m_Radius = 7f;
+            
+            freeLookCam.m_Orbits[2].m_Height = 0.5f;  // Bottom rig
+            freeLookCam.m_Orbits[2].m_Radius = 7f;
+
+            // Set up follow settings
+            freeLookCam.Follow = player;
+            freeLookCam.LookAt = player;
+
+            // Configure FOV and clipping
+            freeLookCam.m_Lens.FieldOfView = 60f;
+            freeLookCam.m_Lens.NearClipPlane = 0.3f;
+            freeLookCam.m_Lens.FarClipPlane = 1000f;
+
+            // Configure axis settings
+            freeLookCam.m_XAxis.m_MaxSpeed = 300f;
+            freeLookCam.m_XAxis.m_AccelTime = 0.1f;
+            freeLookCam.m_XAxis.m_DecelTime = 0.1f;
+            
+            freeLookCam.m_YAxis.m_MaxSpeed = 2f;
+            freeLookCam.m_YAxis.m_AccelTime = 0.2f;
+            freeLookCam.m_YAxis.m_DecelTime = 0.2f;
+            freeLookCam.m_YAxis.m_MinValue = 0.1f;
+            freeLookCam.m_YAxis.m_MaxValue = 0.9f;
+
+            // Set camera damping
+            var composer = freeLookCam.GetComponent<CinemachineComposer>();
+            if (composer != null)
+            {
+                composer.m_HorizontalDamping = 1f;
+                composer.m_VerticalDamping = 1f;
+            }
         }
     }
 
-    private void HandleCombatRotation()
+
+private void UpdateCameraRadius()
+{
+    if (freeLookCam != null && playerAnimator != null)
     {
-        if (combatLookAt != null)
+        if (playerAnimator.IsDoubleJumping)
         {
-            Vector3 dirToCombatLookAt = combatLookAt.position - new Vector3(transform.position.x, combatLookAt.position.y, transform.position.z);
-            orientation.forward = dirToCombatLookAt.normalized;
-            playerObj.forward = dirToCombatLookAt.normalized;
+            // Set specific camera angle for double jump
+            freeLookCam.m_XAxis.Value = Mathf.Lerp(freeLookCam.m_XAxis.Value, doubleJumpXAngle, Time.deltaTime * transitionSpeed);
+            freeLookCam.m_YAxis.Value = Mathf.Lerp(freeLookCam.m_YAxis.Value, doubleJumpYAngle, Time.deltaTime * transitionSpeed);
+            
+            float targetRadius = doubleJumpMiddleRigRadius;
+            freeLookCam.m_Orbits[1].m_Radius = Mathf.Lerp(freeLookCam.m_Orbits[1].m_Radius, targetRadius, Time.deltaTime * transitionSpeed);
+        }
+        else
+        {
+            float targetRadius = defaultMiddleRigRadius;
+            freeLookCam.m_Orbits[1].m_Radius = Mathf.Lerp(freeLookCam.m_Orbits[1].m_Radius, targetRadius, Time.deltaTime * transitionSpeed);
         }
     }
+}
 
-    private void HandleCameraStyleSwitch()
+    private void HandleRotation()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchCameraStyle(CameraStyle.Basic);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchCameraStyle(CameraStyle.Combat);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) SwitchCameraStyle(CameraStyle.Topdown);
-    }
-
-    private void SwitchCameraStyle(CameraStyle newStyle)
-    {
-        // Disable all cameras first
-        if (combatCam != null) combatCam.SetActive(false);
-        if (thirdPersonCam != null) thirdPersonCam.SetActive(false);
-        if (topDownCam != null) topDownCam.SetActive(false);
-
-        // Enable the selected camera
-        switch (newStyle)
+        if (playerAnimator != null && !playerAnimator.IsDead && !playerAnimator.IsVictorious)
         {
-            case CameraStyle.Basic:
-                if (thirdPersonCam != null) thirdPersonCam.SetActive(true);
-                break;
-            case CameraStyle.Combat:
-                if (combatCam != null) combatCam.SetActive(true);
-                break;
-            case CameraStyle.Topdown:
-                if (topDownCam != null) topDownCam.SetActive(true);
-                break;
+            float horizontalInput = Input.GetAxis("Mouse X");
+            playerObj.Rotate(Vector3.up * horizontalInput * rotationSpeed);
         }
-
-        currentStyle = newStyle;
     }
 }

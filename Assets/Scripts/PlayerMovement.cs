@@ -1,3 +1,4 @@
+using System.Collections; 
 using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
@@ -7,6 +8,7 @@ public class PlayerMovement : MonoBehaviour
     
     [Header("Movement")]
     public float moveSpeed = 5f;
+    public float rotationSpeed = 10f;  // Add this line
     public float groundDrag = 5f;
     public float jumpForce = 12f;
     public float jumpCooldown = 0.25f;
@@ -109,58 +111,75 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void MovePlayer()
+    private void Jump(bool isDoubleJump)
     {
-        if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
-            return;
-
-        // Calculate movement direction
-        Vector3 forward = orientation.forward;
-        Vector3 right = orientation.right;
+        // Reset vertical velocity before jump
+        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
         
-        // Keep movement on the ground plane
-        forward.y = 0;
-        right.y = 0;
-        forward.Normalize();
-        right.Normalize();
+        // Apply jump force (same for both jumps)
+        rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
         
-        // Calculate movement direction
-        Vector3 moveDir = (forward * verticalInput + right * horizontalInput).normalized;
-
-        // If there's no input, apply counter-force to stop sliding
-        if (Mathf.Abs(horizontalInput) < 0.1f && Mathf.Abs(verticalInput) < 0.1f)
+        // Trigger appropriate animation
+        if (playerAnimator != null)
         {
-            // Get the horizontal velocity
-            Vector3 horizontalVel = new Vector3(rb.velocity.x, 0, rb.velocity.z);
-            
-            // Apply counter force
-            if (horizontalVel.magnitude > 0.01f)
+            if (isDoubleJump)
             {
-                Vector3 counterForce = -horizontalVel.normalized * moveSpeed * 2f;
-                rb.AddForce(counterForce, ForceMode.Acceleration);
+                playerAnimator.TriggerDoubleJump();
             }
             else
             {
-                // If velocity is very low, just stop horizontal movement
-                rb.velocity = new Vector3(0f, rb.velocity.y, 0f);
+                playerAnimator.TriggerJump();
             }
-            return;
-        }
-
-        // Calculate force to apply
-        float force = moveSpeed * 10f;
-        if (!grounded)
-        {
-            force *= airMultiplier;
-        }
-        else
-        {
-            rb.AddForce(Vector3.down * 10f, ForceMode.Force);
-        }
-
-        // Apply movement force
-        rb.AddForce(moveDir * force, ForceMode.Force);
+            }
     }
+
+
+private void MovePlayer()
+{
+    if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
+        return;
+
+    // Get camera's forward and right vectors
+    Vector3 forward = Camera.main.transform.forward;
+    Vector3 right = Camera.main.transform.right;
+    
+    // Keep movement on the ground plane
+    forward.y = 0;
+    right.y = 0;
+    forward.Normalize();
+    right.Normalize();
+    
+    // Calculate movement direction relative to camera
+    Vector3 moveDir = (forward * verticalInput + right * horizontalInput).normalized;
+
+    // Only rotate if there's movement input
+    if (moveDir != Vector3.zero)
+    {
+        // Rotate player to face movement direction
+        transform.rotation = Quaternion.Lerp(transform.rotation, 
+            Quaternion.LookRotation(moveDir), 
+            Time.deltaTime * rotationSpeed);
+    }
+
+    // Apply movement
+    if (moveDir.magnitude > 0)
+    {
+        rb.velocity = new Vector3(moveDir.x * moveSpeed, rb.velocity.y, moveDir.z * moveSpeed);
+    }
+    else
+    {
+        // Counter sliding when no input
+        Vector3 horizontalVel = new Vector3(rb.velocity.x, 0, rb.velocity.z);
+        rb.velocity = new Vector3(horizontalVel.x * 0.9f, rb.velocity.y, horizontalVel.z * 0.9f);
+    }
+
+    // Update animator
+    if (playerAnimator != null)
+    {
+        playerAnimator.SetIsMoving(moveDir.magnitude > 0.1f);
+        playerAnimator.SetMovementSpeed(moveDir.magnitude);
+    }
+}
 
     private void SpeedControl()
     {
@@ -172,28 +191,6 @@ public class PlayerMovement : MonoBehaviour
             Vector3 limitedVel = flatVel.normalized * moveSpeed;
             rb.velocity = new Vector3(limitedVel.x, rb.velocity.y, limitedVel.z);
         }
-    }
-
-    private void Jump(bool isDoubleJump)
-    {
-        // Reset Y velocity
-        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-
-        // Trigger appropriate jump animation
-        if (playerAnimator != null)
-        {
-            if (isDoubleJump)
-            {
-                playerAnimator.TriggerDoubleJump();
-            }
-            else
-            {
-                playerAnimator.TriggerJump();
-            }
-        }
-
-        // Apply jump force
-        rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
     }
 
     private void ResetJump()

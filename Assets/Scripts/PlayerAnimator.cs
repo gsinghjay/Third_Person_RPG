@@ -1,3 +1,4 @@
+using System.Collections; 
 using UnityEngine;
 
 [RequireComponent(typeof(Animator))]
@@ -22,35 +23,11 @@ public class PlayerAnimator : MonoBehaviour
     private readonly int jumpHash = Animator.StringToHash("Jump");
     private readonly int doubleJumpHash = Animator.StringToHash("DoubleJump");
     private readonly int landHash = Animator.StringToHash("Land");
+
     private bool isJumping = false;
-
-    public void TriggerJump()
-    {
-        if (!isDead && !isVictorious)
-        {
-            isJumping = true;
-            animator.SetBool(isJumpingHash, true);
-            animator.SetTrigger(jumpHash);
-        }
-    }
-
-    public void TriggerDoubleJump()
-    {
-        if (!isDead && !isVictorious && isJumping)
-        {
-            animator.SetTrigger(doubleJumpHash);
-        }
-    }
-
-    public void TriggerLand()
-    {
-        if (isJumping)
-        {
-            isJumping = false;
-            animator.SetBool(isJumpingHash, false);
-            animator.SetTrigger(landHash);
-        }
-    }
+    public bool IsJumping => isJumping;
+    private bool isDoubleJumping = false;
+    public bool IsDoubleJumping => isDoubleJumping;
 
     private void Awake()
     {
@@ -64,36 +41,77 @@ public class PlayerAnimator : MonoBehaviour
             Debug.LogError("Rigidbody component missing on parent of " + gameObject.name);
     }
 
-    private void OnAnimatorMove()
+private void OnAnimatorMove()
+{
+    if (!animator || isDead || isVictorious || !rb) return;
+
+    // Get the root motion delta from the animator
+    Vector3 velocity = animator.deltaPosition;
+    
+    // Apply vertical velocity from rigidbody for all jumps
+    velocity.y = rb.velocity.y;
+    
+    // Apply the velocity
+    if (animator.deltaPosition.magnitude > 0)
     {
-        if (!animator || isDead || isVictorious || !rb) return;
-
-        // Get the root motion delta from the animator
-        Vector3 velocity = animator.deltaPosition;
-        
-        // Preserve the Y velocity for jumps/gravity
-        velocity.y = rb.velocity.y;
-        
-        // Apply the velocity
-        if (animator.deltaPosition.magnitude > 0)
-        {
-            rb.velocity = velocity / Time.deltaTime;
-        }
-
-        // Apply rotation if we have any rotation delta
-        if (animator.deltaRotation != Quaternion.identity)
-        {
-            rb.MoveRotation(rb.rotation * animator.deltaRotation);
-        }
+        rb.velocity = velocity / Time.deltaTime;
     }
+
+    // Apply rotation from animator
+    if (animator.deltaRotation != Quaternion.identity)
+    {
+        rb.MoveRotation(rb.rotation * animator.deltaRotation);
+    }
+}
+
+public void TriggerJump()
+{
+    if (!isDead && !isVictorious)
+    {
+        isJumping = true;
+        animator.SetBool(isJumpingHash, true);
+        animator.SetTrigger(jumpHash);
+    }
+}
+
+public void TriggerDoubleJump()
+{
+    if (!isDead && !isVictorious && isJumping && !isDoubleJumping)
+    {
+        isDoubleJumping = true;
+        // Use doubleJumpHash to trigger the spinning jump animation
+        animator.SetTrigger(doubleJumpHash);
+    }
+}
+
+private IEnumerator ResetDoubleJumpState()
+{
+    yield return new WaitForSeconds(0.5f);
+    // Remove this line
+    // animator.SetBool(isSpinningHash, false);
+    isDoubleJumping = false;
+}
+
+public void TriggerLand()
+{
+    if (isJumping)
+    {
+        isJumping = false;
+        isDoubleJumping = false;
+        animator.SetBool(isJumpingHash, false);
+        // Remove this line
+        // animator.SetBool(isSpinningHash, false);
+        animator.SetTrigger(landHash);
+    }
+}
 
     public void SetIsMoving(bool isMoving)
     {
         if (!isDead && !isVictorious)
         {
             animator.SetBool(isMovingHash, isMoving);
-            // Debug log to verify the animation state changes
-            Debug.Log($"Setting IsMoving to: {isMoving}");
+            // Remove debug log
+            // Debug.Log($"Setting IsMoving to: {isMoving}");
         }
     }
 
