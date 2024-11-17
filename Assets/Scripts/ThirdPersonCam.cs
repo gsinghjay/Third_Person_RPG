@@ -26,25 +26,29 @@ public class ThirdPersonCam : MonoBehaviour
         Topdown
     }
 
+    private PlayerAnimator playerAnimator;
+
     private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        playerAnimator = player.GetComponent<PlayerAnimator>();
     }
 
     private void Update()
     {
-        // switch styles
+        // Switch styles
         if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchCameraStyle(CameraStyle.Basic);
         if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchCameraStyle(CameraStyle.Combat);
         if (Input.GetKeyDown(KeyCode.Alpha3)) SwitchCameraStyle(CameraStyle.Topdown);
 
-        // rotate orientation
+        // Rotate orientation
         Vector3 viewDir = player.position - new Vector3(transform.position.x, player.position.y, transform.position.z);
         orientation.forward = viewDir.normalized;
 
-        // roate player object
-        if(currentStyle == CameraStyle.Basic || currentStyle == CameraStyle.Topdown)
+        // Rotate player object based on movement or combat state
+        if (currentStyle == CameraStyle.Basic || currentStyle == CameraStyle.Topdown)
         {
             float horizontalInput = Input.GetAxis("Horizontal");
             float verticalInput = Input.GetAxis("Vertical");
@@ -53,13 +57,18 @@ public class ThirdPersonCam : MonoBehaviour
             if (inputDir != Vector3.zero)
                 playerObj.forward = Vector3.Slerp(playerObj.forward, inputDir.normalized, Time.deltaTime * rotationSpeed);
         }
-
-        else if(currentStyle == CameraStyle.Combat)
+        else if (currentStyle == CameraStyle.Combat)
         {
             Vector3 dirToCombatLookAt = combatLookAt.position - new Vector3(transform.position.x, combatLookAt.position.y, transform.position.z);
             orientation.forward = dirToCombatLookAt.normalized;
 
             playerObj.forward = dirToCombatLookAt.normalized;
+        }
+
+        // Example: Force camera to switch based on animation state
+        if (playerAnimator != null)
+        {
+            // You can add conditions here based on animation states if needed
         }
     }
 
@@ -69,9 +78,18 @@ public class ThirdPersonCam : MonoBehaviour
         thirdPersonCam.SetActive(false);
         topDownCam.SetActive(false);
 
-        if (newStyle == CameraStyle.Basic) thirdPersonCam.SetActive(true);
-        if (newStyle == CameraStyle.Combat) combatCam.SetActive(true);
-        if (newStyle == CameraStyle.Topdown) topDownCam.SetActive(true);
+        switch (newStyle)
+        {
+            case CameraStyle.Basic:
+                thirdPersonCam.SetActive(true);
+                break;
+            case CameraStyle.Combat:
+                combatCam.SetActive(true);
+                break;
+            case CameraStyle.Topdown:
+                topDownCam.SetActive(true);
+                break;
+        }
 
         currentStyle = newStyle;
     }
