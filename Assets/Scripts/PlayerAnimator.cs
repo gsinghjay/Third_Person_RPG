@@ -5,29 +5,36 @@ public class PlayerAnimator : MonoBehaviour
 {
     private Animator animator;
     private Rigidbody rb;
-    private bool isDead = false;
-    private bool isVictorious = false;
 
     // Animation parameter hashes
-    private readonly int isMovingHash = Animator.StringToHash("IsMoving");
-    private readonly int victoryHash = Animator.StringToHash("Victory");
-    private readonly int dieHash = Animator.StringToHash("Die");
+    private readonly int stateHash = Animator.StringToHash("State");
     private readonly int moveSpeedHash = Animator.StringToHash("MoveSpeed");
-    private readonly int isJumpingHash = Animator.StringToHash("IsJumping");
-    private readonly int jumpHash = Animator.StringToHash("Jump");
-    private readonly int landHash = Animator.StringToHash("Land");
 
+    private bool isDead = false;
+    private bool isVictorious = false;
     private bool isJumping = false;
-    
+
     // Public properties
     public bool IsDead => isDead;
     public bool IsVictorious => isVictorious;
     public bool IsJumping => isJumping;
+    public bool IsMoving { get; private set; }
+    public float CurrentSpeed { get; set; } = 1f;
+
+    // State management
+    private IAnimationState currentState;
 
     private void Awake()
     {
         animator = GetComponent<Animator>();
         rb = GetComponentInParent<Rigidbody>();
+        ChangeState(new IdleState(this));
+    }
+
+    private void Update()
+    {
+        currentState.HandleInput();
+        currentState.UpdateState();
     }
 
     private void OnAnimatorMove()
@@ -36,7 +43,7 @@ public class PlayerAnimator : MonoBehaviour
 
         Vector3 velocity = animator.deltaPosition;
         velocity.y = rb.velocity.y;
-        
+
         if (animator.deltaPosition.magnitude > 0)
         {
             rb.velocity = velocity / Time.deltaTime;
@@ -48,13 +55,25 @@ public class PlayerAnimator : MonoBehaviour
         }
     }
 
+    public void ChangeState(IAnimationState newState)
+    {
+        if (currentState != null && currentState.GetType() == newState.GetType())
+            return; // Prevent changing to the same state
+
+        if (currentState != null)
+            currentState.Exit();
+
+        currentState = newState;
+        currentState.Enter();
+    }
+
     public void TriggerJump()
     {
         if (!isDead && !isVictorious)
         {
             isJumping = true;
-            animator.SetBool(isJumpingHash, true);
-            animator.SetTrigger(jumpHash);
+            SetAnimationState(AnimationState.Jumping);
+            ChangeState(new JumpState(this));
         }
     }
 
@@ -63,8 +82,8 @@ public class PlayerAnimator : MonoBehaviour
         if (isJumping)
         {
             isJumping = false;
-            animator.SetBool(isJumpingHash, false);
-            animator.SetTrigger(landHash);
+            SetAnimationState(AnimationState.Idle);
+            ChangeState(new IdleState(this));
         }
     }
 
@@ -72,7 +91,17 @@ public class PlayerAnimator : MonoBehaviour
     {
         if (!isDead && !isVictorious)
         {
-            animator.SetBool(isMovingHash, isMoving);
+            IsMoving = isMoving;
+            if (isMoving)
+            {
+                SetAnimationState(AnimationState.Moving);
+                ChangeState(new MoveState(this));
+            }
+            else
+            {
+                SetAnimationState(AnimationState.Idle);
+                ChangeState(new IdleState(this));
+            }
         }
     }
 
@@ -80,6 +109,7 @@ public class PlayerAnimator : MonoBehaviour
     {
         if (!isDead && !isVictorious)
         {
+            CurrentSpeed = speed;
             animator.SetFloat(moveSpeedHash, speed);
         }
     }
@@ -89,7 +119,8 @@ public class PlayerAnimator : MonoBehaviour
         if (!isDead && !isVictorious)
         {
             isVictorious = true;
-            animator.SetTrigger(victoryHash);
+            SetAnimationState(AnimationState.Victory);
+            ChangeState(new VictoryState(this));
         }
     }
 
@@ -98,7 +129,24 @@ public class PlayerAnimator : MonoBehaviour
         if (!isDead && !isVictorious)
         {
             isDead = true;
-            animator.SetTrigger(dieHash);
+            SetAnimationState(AnimationState.Die);
+            ChangeState(new DieState(this));
         }
     }
+
+    public void SetAnimationState(AnimationState state)
+    {
+        animator.SetInteger(stateHash, (int)state);
+    }
+
+    // Optional: Reset states or handle other state-related logic
+}
+
+public enum AnimationState
+{
+    Idle = 0,
+    Moving = 1,
+    Jumping = 2,
+    Victory = 3,
+    Die = 4
 }
