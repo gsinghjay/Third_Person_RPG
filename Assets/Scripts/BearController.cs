@@ -28,6 +28,11 @@ public class BearController : MonoBehaviour
     [SerializeField] private float stoppingDistance = 1.5f;
     [SerializeField] private float acceleration = 8f;
     [SerializeField] private float angularSpeed = 120f;
+
+    [Header("Spawn Settings")]
+    private Vector3 spawnPosition;
+    private Quaternion spawnRotation;
+    private bool isReturningToSpawn;
     
     // Cache components for better performance
     private NavMeshAgent agent;
@@ -48,9 +53,13 @@ public class BearController : MonoBehaviour
         animator = GetComponent<Animator>();
         bearTransform = transform;
         
+        // Store spawn position and rotation
+        spawnPosition = transform.position;
+        spawnRotation = transform.rotation;
+        
         ConfigureNavMeshAgent();
     }
-    
+        
     private void Start()
     {
         if (!isInitialized)
@@ -80,23 +89,28 @@ public class BearController : MonoBehaviour
         switch (newState)
         {
             case BearState.Sleeping:
-                agent.isStopped = true;
                 ResetAllTriggers();
                 animator.SetTrigger(HASH_SLEEP);
+                agent.isStopped = true;
                 agent.speed = patrolMovementSpeed;
                 break;
                 
             case BearState.WakingUp:
-                agent.isStopped = true;
                 ResetAllTriggers();
                 animator.SetTrigger(HASH_IDLE);
+                agent.isStopped = true;
                 break;
                 
             case BearState.Combat:
+                agent.speed = combatMovementSpeed;
                 agent.isStopped = false;
+                break;
+                
+            case BearState.ReturningToSpawn:
                 ResetAllTriggers();
                 animator.SetTrigger(HASH_RUN);
-                agent.speed = combatMovementSpeed;
+                agent.speed = patrolMovementSpeed;
+                agent.isStopped = false;
                 break;
         }
     }
@@ -144,6 +158,10 @@ public class BearController : MonoBehaviour
             case BearState.Combat:
                 UpdateCombatState();
                 break;
+                
+            case BearState.ReturningToSpawn:
+                UpdateReturningToSpawnState();
+                break;
         }
     }
     
@@ -152,10 +170,10 @@ public class BearController : MonoBehaviour
         if (distanceToPlayer > detectionRange)
         {
             ResetAllTriggers();
-            ChangeState(BearState.Sleeping);
+            ChangeState(BearState.ReturningToSpawn);
             return;
         }
-        
+    
         targetPosition = playerTransform.position;
         
         // Only update rotation if we're not too close to avoid jittering
@@ -184,6 +202,31 @@ public class BearController : MonoBehaviour
             animator.SetTrigger(Random.value > 0.5f ? HASH_ATTACK1 : HASH_ATTACK2);
             nextAttackTime = Time.time + attackCooldown;
         }
+    }
+
+    private void UpdateReturningToSpawnState()
+    {
+        float distanceToSpawn = Vector3.Distance(transform.position, spawnPosition);
+        
+        if (distanceToSpawn <= stoppingDistance)
+        {
+            // We've reached the spawn point
+            transform.rotation = spawnRotation;
+            ChangeState(BearState.Sleeping);
+            return;
+        }
+
+        // Check if player comes back in range while returning
+        if (distanceToPlayer <= detectionRange)
+        {
+            ChangeState(BearState.Combat);
+            return;
+        }
+
+        // Move towards spawn point
+        agent.SetDestination(spawnPosition);
+        agent.isStopped = false;
+        animator.SetTrigger(HASH_RUN);
     }
     
     private void ResetAllTriggers()
@@ -222,5 +265,6 @@ public enum BearState
 {
     Sleeping,
     WakingUp,
-    Combat
+    Combat,
+    ReturningToSpawn
 }
