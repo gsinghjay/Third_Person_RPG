@@ -23,6 +23,17 @@ public class BearController : MonoBehaviour
     [SerializeField] private float combatMovementSpeed = 5f;
     [SerializeField] private float patrolMovementSpeed = 3f;
     
+    [Header("NavMesh Settings")]
+    [SerializeField] private float avoidanceRadius = 1f;
+    [SerializeField] private float stoppingDistance = 1.5f;
+    [SerializeField] private float acceleration = 8f;
+    [SerializeField] private float angularSpeed = 120f;
+
+    [Header("Spawn Settings")]
+    private Vector3 spawnPosition;
+    private Quaternion spawnRotation;
+    private bool isReturningToSpawn;
+    
     // Cache components for better performance
     private NavMeshAgent agent;
     private Animator animator;
@@ -42,9 +53,13 @@ public class BearController : MonoBehaviour
         animator = GetComponent<Animator>();
         bearTransform = transform;
         
-        SetupPhysics();
+        // Store spawn position and rotation
+        spawnPosition = transform.position;
+        spawnRotation = transform.rotation;
+        
+        ConfigureNavMeshAgent();
     }
-    
+        
     private void Start()
     {
         if (!isInitialized)
@@ -74,44 +89,43 @@ public class BearController : MonoBehaviour
         switch (newState)
         {
             case BearState.Sleeping:
-                agent.isStopped = true;
                 ResetAllTriggers();
                 animator.SetTrigger(HASH_SLEEP);
+                agent.isStopped = true;
                 agent.speed = patrolMovementSpeed;
                 break;
                 
             case BearState.WakingUp:
-                agent.isStopped = true;
                 ResetAllTriggers();
                 animator.SetTrigger(HASH_IDLE);
+                agent.isStopped = true;
                 break;
                 
             case BearState.Combat:
+                agent.speed = combatMovementSpeed;
                 agent.isStopped = false;
+                break;
+                
+            case BearState.ReturningToSpawn:
                 ResetAllTriggers();
                 animator.SetTrigger(HASH_RUN);
-                agent.speed = combatMovementSpeed;
+                agent.speed = patrolMovementSpeed;
+                agent.isStopped = false;
                 break;
         }
     }
     
-    private void SetupPhysics()
+    private void ConfigureNavMeshAgent()
     {
-        CapsuleCollider capsule = GetComponent<CapsuleCollider>();
-        if (capsule == null)
+        if (agent != null)
         {
-            capsule = gameObject.AddComponent<CapsuleCollider>();
-            capsule.center = new Vector3(0, 1f, 0);
-            capsule.radius = 0.5f;
-            capsule.height = 2f;
-        }
-        
-        Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb == null)
-        {
-            rb = gameObject.AddComponent<Rigidbody>();
-            rb.isKinematic = true;
-            rb.useGravity = false;
+            agent.radius = avoidanceRadius;
+            agent.stoppingDistance = stoppingDistance;
+            agent.acceleration = acceleration;
+            agent.angularSpeed = angularSpeed;
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+            agent.avoidancePriority = Random.Range(0, 99); // Randomize priority to prevent deadlocks
+            agent.autoTraverseOffMeshLink = true;
         }
     }
 
@@ -144,6 +158,10 @@ public class BearController : MonoBehaviour
             case BearState.Combat:
                 UpdateCombatState();
                 break;
+                
+            case BearState.ReturningToSpawn:
+                UpdateReturningToSpawnState();
+                break;
         }
     }
     
@@ -152,21 +170,30 @@ public class BearController : MonoBehaviour
         if (distanceToPlayer > detectionRange)
         {
             ResetAllTriggers();
-            ChangeState(BearState.Sleeping);
+            ChangeState(BearState.ReturningToSpawn);
             return;
         }
-        
+    
         targetPosition = playerTransform.position;
-        Vector3 direction = targetPosition - bearTransform.position;
-        direction.y = 0;
         
-        if (direction != Vector3.zero)
+        // Only update rotation if we're not too close to avoid jittering
+        if (distanceToPlayer > stoppingDistance)
         {
-            bearTransform.rotation = Quaternion.Slerp(
-                bearTransform.rotation,
-                Quaternion.LookRotation(direction),
-                Time.deltaTime * 5f
-            );
+            agent.SetDestination(targetPosition);
+            agent.isStopped = false;
+            animator.SetTrigger(HASH_RUN);
+        }
+        else
+        {
+            agent.isStopped = true;
+            
+            // Look at target
+            Vector3 direction = (targetPosition - bearTransform.position).normalized;
+            if (direction != Vector3.zero)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(new Vector3(direction.x, 0, direction.z));
+                bearTransform.rotation = Quaternion.Slerp(bearTransform.rotation, lookRotation, Time.deltaTime * angularSpeed);
+            }
         }
         
         if (distanceToPlayer <= attackRange && Time.time >= nextAttackTime)
@@ -175,13 +202,31 @@ public class BearController : MonoBehaviour
             animator.SetTrigger(Random.value > 0.5f ? HASH_ATTACK1 : HASH_ATTACK2);
             nextAttackTime = Time.time + attackCooldown;
         }
-        else if (distanceToPlayer > attackRange)
+    }
+
+    private void UpdateReturningToSpawnState()
+    {
+        float distanceToSpawn = Vector3.Distance(transform.position, spawnPosition);
+        
+        if (distanceToSpawn <= stoppingDistance)
         {
-            ResetAllTriggers();
-            animator.SetTrigger(HASH_RUN);
-            agent.isStopped = false;
-            agent.SetDestination(targetPosition);
+            // We've reached the spawn point
+            transform.rotation = spawnRotation;
+            ChangeState(BearState.Sleeping);
+            return;
         }
+
+        // Check if player comes back in range while returning
+        if (distanceToPlayer <= detectionRange)
+        {
+            ChangeState(BearState.Combat);
+            return;
+        }
+
+        // Move towards spawn point
+        agent.SetDestination(spawnPosition);
+        agent.isStopped = false;
+        animator.SetTrigger(HASH_RUN);
     }
     
     private void ResetAllTriggers()
@@ -220,5 +265,6 @@ public enum BearState
 {
     Sleeping,
     WakingUp,
-    Combat
+    Combat,
+    ReturningToSpawn
 }
