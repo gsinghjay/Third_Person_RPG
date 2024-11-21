@@ -3,40 +3,73 @@ using UnityEngine;
 public class JumpState : IAnimationState
 {
     private PlayerAnimator playerAnimator;
+    private PlayerMovement playerMovement;
 
     public JumpState(PlayerAnimator animator)
     {
+        Debug.Log("Entering JumpState constructor");
         playerAnimator = animator;
+        playerMovement = animator.GetComponentInParent<PlayerMovement>();
+        if (playerMovement == null)
+        {
+            Debug.LogError("PlayerMovement component not found!");
+        }
     }
 
     public void Enter()
     {
+        Debug.Log("JumpState Enter - Setting animation state to Jumping");
         playerAnimator.SetAnimationState(AnimationState.Jumping);
     }
 
-    public void HandleInput()
+public void HandleInput()
+{
+    if (playerMovement == null)
     {
-        if (!playerAnimator.IsJumping)
+        Debug.LogError("HandleInput - playerMovement is null");
+        return;
+    }
+
+    // Check if we've landed
+    if (playerMovement.IsGrounded())
+    {
+        Debug.Log("JumpState HandleInput - Player has landed");
+        playerAnimator.TriggerLand();  // Reset IsJumping
+        
+        // Transition to appropriate state based on movement
+        if (playerAnimator.IsMoving)
+        {
+            playerAnimator.ChangeState(new MoveState(playerAnimator));
+        }
+        else
         {
             playerAnimator.ChangeState(new IdleState(playerAnimator));
         }
-        else if (playerAnimator.IsDead)
+
+        if (playerAnimator.IsDead)
         {
+            Debug.Log("JumpState HandleInput - Transitioning to DieState");
             playerAnimator.ChangeState(new DieState(playerAnimator));
         }
         else if (playerAnimator.IsVictorious)
         {
+            Debug.Log("JumpState HandleInput - Transitioning to VictoryState");
             playerAnimator.ChangeState(new VictoryState(playerAnimator));
         }
+        return;
     }
-
+}
     public void UpdateState()
     {
-        // Jump-specific update logic if needed
+        // Update movement speed during jump
+        if (playerAnimator.IsMoving)
+        {
+            playerAnimator.SetMovementSpeed(playerAnimator.CurrentSpeed);
+        }
     }
 
     public void Exit()
     {
-        // Cleanup when exiting Jump State
+        // No cleanup needed
     }
 }

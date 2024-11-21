@@ -32,23 +32,32 @@ public class ThirdPersonCam : MonoBehaviour
     {
         if (freeLookCam != null)
         {
-            // Configure camera rigs
-            freeLookCam.m_Orbits[0].m_Height = 4.5f;  // Top view
-            freeLookCam.m_Orbits[0].m_Radius = 7f;
+            // Adjust camera rigs for better jump visibility
+            freeLookCam.m_Orbits[0].m_Height = 6f;    // Top view (increased height)
+            freeLookCam.m_Orbits[0].m_Radius = 8f;
             
-            freeLookCam.m_Orbits[1].m_Height = 2.5f;  // Middle view
+            freeLookCam.m_Orbits[1].m_Height = 3.5f;  // Middle view
             freeLookCam.m_Orbits[1].m_Radius = 7f;
             
-            freeLookCam.m_Orbits[2].m_Height = 0.5f;  // Bottom view
-            freeLookCam.m_Orbits[2].m_Radius = 7f;
+            freeLookCam.m_Orbits[2].m_Height = 1f;    // Bottom view
+            freeLookCam.m_Orbits[2].m_Radius = 6f;
 
-            // Set follow target
+            // Set follow and look targets
             freeLookCam.Follow = player;
             freeLookCam.LookAt = player;
 
-            // Camera rotation speeds
-            freeLookCam.m_XAxis.m_MaxSpeed = 300f;  // Horizontal rotation
-            freeLookCam.m_YAxis.m_MaxSpeed = 2f;    // Vertical rotation
+            // Adjust camera settings
+            freeLookCam.m_XAxis.m_MaxSpeed = 300f;
+            freeLookCam.m_YAxis.m_MaxSpeed = 2f;
+            
+            // Improve camera behavior during jumps
+            freeLookCam.m_YAxis.m_AccelTime = 0.1f;
+            freeLookCam.m_YAxis.m_DecelTime = 0.1f;
+            
+            // Adjust camera damping
+            freeLookCam.m_Heading.m_Bias = 0f;
+            freeLookCam.m_XAxis.m_AccelTime = 0.1f;
+            freeLookCam.m_XAxis.m_DecelTime = 0.1f;
         }
     }
 }
