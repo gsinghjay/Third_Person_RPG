@@ -49,39 +49,31 @@ public class PlayerMovement : MonoBehaviour
 
 private void Update()
 {
-    // Ground check with debug
+    // Ground check
     grounded = Physics.CheckSphere(
         transform.position - new Vector3(0, playerHeight * 0.5f, 0),
         groundCheckRadius,
         groundLayer
     );
     
-    Debug.Log($"Ground Check - Position: {transform.position}, Height Offset: {playerHeight * 0.5f}, Is Grounded: {grounded}");
-
     MyInput();
     
-    // Handle drag with debug
+    // Handle drag
     rb.drag = grounded ? groundDrag : 0f;
-    Debug.Log($"Current Drag: {rb.drag}, Velocity: {rb.velocity}");
 }
 
 private void FixedUpdate()
 {
     MovePlayer();
     SpeedControl();
-    
-    // Debug physics state
-    Debug.Log($"FixedUpdate - Position: {transform.position}, Velocity: {rb.velocity}, IsKinematic: {rb.isKinematic}");
 }
 
 private void OnCollisionEnter(Collision collision)
 {
-    Debug.Log($"Collision Enter with: {collision.gameObject.name}, Normal: {collision.contacts[0].normal}");
 }
 
 private void OnCollisionStay(Collision collision)
 {
-    Debug.Log($"Collision Stay with: {collision.gameObject.name}, Contact Count: {collision.contactCount}");
 }
 
     private void MyInput()
@@ -104,7 +96,6 @@ private void OnCollisionStay(Collision collision)
         // Handle jumping
         if (Input.GetKeyDown(jumpKey))
         {
-            Debug.Log($"Jump key pressed. Grounded: {grounded}, ReadyToJump: {readyToJump}");
             if (readyToJump && grounded)
             {
                 readyToJump = false;
@@ -152,22 +143,16 @@ private void OnCollisionStay(Collision collision)
 
 private void Jump()
 {
-    Debug.Log($"Jump triggered. Grounded: {grounded}, ReadyToJump: {readyToJump}");
-    Debug.Log($"Pre-Jump Velocity: {rb.velocity}");
-    
     // Reset y velocity
     rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-    Debug.Log($"Reset Velocity: {rb.velocity}");
     
     // Apply jump force
     Vector3 jumpVector = Vector3.up * jumpForce;
     rb.AddForce(jumpVector, ForceMode.Impulse);
-    Debug.Log($"Applied Jump Force: {jumpVector}, New Velocity: {rb.velocity}");
     
     if (playerAnimator != null)
     {
         playerAnimator.TriggerJump();
-        Debug.Log("Jump animation triggered");
     }
 }
 
