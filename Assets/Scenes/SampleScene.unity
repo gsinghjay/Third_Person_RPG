@@ -1191,8 +1191,6 @@ MonoBehaviour:
   stoppingDistance: 1.5
   acceleration: 8
   angularSpeed: 120
-  collisionRadius: 1
-  collisionHeight: 2
 --- !u!195 &875880820
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1201,7 +1199,7 @@ NavMeshAgent:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 875880817}
   m_Enabled: 1
-  m_AgentTypeID: 0
+  m_AgentTypeID: -1372625422
   m_Radius: 8
   m_Speed: 7
   m_Acceleration: 8
@@ -1666,8 +1664,6 @@ MonoBehaviour:
   stoppingDistance: 1.5
   acceleration: 8
   angularSpeed: 120
-  collisionRadius: 1
-  collisionHeight: 2
 --- !u!195 &927925195
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1676,7 +1672,7 @@ NavMeshAgent:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 927925192}
   m_Enabled: 1
-  m_AgentTypeID: 0
+  m_AgentTypeID: -1372625422
   m_Radius: 0.5
   m_Speed: 7
   m_Acceleration: 8
@@ -2129,7 +2125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_AgentTypeID: 0
+  m_AgentTypeID: -1372625422
   m_CollectObjects: 0
   m_Size: {x: 10, y: 10, z: 10}
   m_Center: {x: 0, y: 2, z: 0}
@@ -2144,7 +2140,7 @@ MonoBehaviour:
   m_OverrideTileSize: 0
   m_TileSize: 256
   m_OverrideVoxelSize: 0
-  m_VoxelSize: 0.16666667
+  m_VoxelSize: 0.33333334
   m_MinRegionArea: 2
   m_NavMeshData: {fileID: 23800000, guid: 1ece7e336c7cd064897c9c753505c57e, type: 2}
   m_BuildHeightMesh: 0
@@ -3314,8 +3310,6 @@ MonoBehaviour:
   stoppingDistance: 1.5
   acceleration: 8
   angularSpeed: 120
-  collisionRadius: 1
-  collisionHeight: 2
 --- !u!195 &1763143184
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -3324,7 +3318,7 @@ NavMeshAgent:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1763143181}
   m_Enabled: 1
-  m_AgentTypeID: 0
+  m_AgentTypeID: -1372625422
   m_Radius: 0.5
   m_Speed: 7
   m_Acceleration: 8
