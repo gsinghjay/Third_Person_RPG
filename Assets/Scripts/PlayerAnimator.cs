@@ -5,6 +5,8 @@ public class PlayerAnimator : MonoBehaviour
 {
     private Animator animator;
     private Rigidbody rb;
+    private Vector3 originalLocalPosition;
+    private Quaternion originalLocalRotation;
 
     // Animation parameter hashes
     private readonly int stateHash = Animator.StringToHash("State");
@@ -28,6 +30,12 @@ public class PlayerAnimator : MonoBehaviour
     {
         animator = GetComponent<Animator>();
         rb = GetComponentInParent<Rigidbody>();
+        animator.applyRootMotion = false;
+        
+        // Store original transform data
+        originalLocalPosition = transform.localPosition;
+        originalLocalRotation = transform.localRotation;
+        
         ChangeState(new IdleState(this));
     }
 
@@ -37,21 +45,35 @@ public class PlayerAnimator : MonoBehaviour
         currentState.UpdateState();
     }
 
+    private void LateUpdate()
+    {
+        // Keep local transform fixed during jump
+        if (isJumping)
+        {
+            transform.localPosition = originalLocalPosition;
+            transform.localRotation = originalLocalRotation;
+        }
+    }
+
     private void OnAnimatorMove()
     {
         if (!animator || isDead || isVictorious || !rb) return;
 
-        Vector3 velocity = animator.deltaPosition;
-        velocity.y = rb.velocity.y;
-
-        if (animator.deltaPosition.magnitude > 0)
+        // Only apply root motion for non-jumping animations
+        if (!isJumping)
         {
-            rb.velocity = velocity / Time.deltaTime;
-        }
+            Vector3 velocity = animator.deltaPosition;
+            velocity.y = rb.velocity.y;
 
-        if (animator.deltaRotation != Quaternion.identity)
-        {
-            rb.MoveRotation(rb.rotation * animator.deltaRotation);
+            if (animator.deltaPosition.magnitude > 0)
+            {
+                rb.velocity = velocity / Time.deltaTime;
+            }
+
+            if (animator.deltaRotation != Quaternion.identity)
+            {
+                rb.MoveRotation(rb.rotation * animator.deltaRotation);
+            }
         }
     }
 
@@ -82,6 +104,10 @@ public class PlayerAnimator : MonoBehaviour
         if (isJumping)
         {
             isJumping = false;
+            // Reset local transform
+            transform.localPosition = originalLocalPosition;
+            transform.localRotation = originalLocalRotation;
+            
             SetAnimationState(AnimationState.Idle);
             ChangeState(new IdleState(this));
         }
@@ -138,8 +164,6 @@ public class PlayerAnimator : MonoBehaviour
     {
         animator.SetInteger(stateHash, (int)state);
     }
-
-    // Optional: Reset states or handle other state-related logic
 }
 
 public enum AnimationState

@@ -68,9 +68,20 @@ private void FixedUpdate()
     SpeedControl();
 }
 
-private void OnCollisionEnter(Collision collision)
-{
-}
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.layer == LayerMask.NameToLayer("Ground"))
+        {
+            Debug.Log("Ground collision detected");
+            grounded = true;
+            readyToJump = true;
+            if (playerAnimator != null)
+            {
+                Debug.Log("Triggering land animation");
+                playerAnimator.TriggerLand();
+            }
+        }
+    }
 
 private void OnCollisionStay(Collision collision)
 {
@@ -94,14 +105,11 @@ private void OnCollisionStay(Collision collision)
         }
 
         // Handle jumping
-        if (Input.GetKeyDown(jumpKey))
+        if (Input.GetKeyDown(jumpKey) && grounded)
         {
-            if (readyToJump && grounded)
-            {
-                readyToJump = false;
-                Jump();
-                Invoke(nameof(ResetJump), jumpCooldown);
-            }
+            Debug.Log($"Jump attempt - readyToJump: {readyToJump}, grounded: {grounded}");
+            Jump();
+            Invoke(nameof(ResetJump), jumpCooldown);
         }
     }
 
@@ -141,20 +149,31 @@ private void OnCollisionStay(Collision collision)
         );
     }
 
-private void Jump()
-{
-    // Reset y velocity
-    rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-    
-    // Apply jump force
-    Vector3 jumpVector = Vector3.up * jumpForce;
-    rb.AddForce(jumpVector, ForceMode.Impulse);
-    
-    if (playerAnimator != null)
+    private void Jump()
     {
-        playerAnimator.TriggerJump();
+        if (!grounded)
+        {
+            Debug.Log("Jump failed - not grounded");
+            return;
+        }
+        
+        Debug.Log("Jump initiated");
+        
+        // Reset y velocity
+        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        
+        // Apply jump force
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        
+        if (playerAnimator != null)
+        {
+            Debug.Log("Triggering jump animation");
+            playerAnimator.TriggerJump();
+        }
+        
+        // Ensure ground check is temporarily disabled
+        grounded = false;
     }
-}
 
     private void SpeedControl()
     {
@@ -171,6 +190,11 @@ private void Jump()
     private void ResetJump()
     {
         readyToJump = true;
+    }
+
+    public bool IsGrounded()
+    {
+        return grounded;
     }
 
     private void OnDrawGizmosSelected()
