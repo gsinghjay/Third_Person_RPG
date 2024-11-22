@@ -116,7 +116,10 @@ private void OnCollisionStay(Collision collision)
     private void MovePlayer()
     {
         if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
+        {
+            GameLogger.LogMovement("Movement blocked - player dead or victorious");
             return;
+        }
 
         // Calculate movement direction relative to camera
         Vector3 forward = Camera.main.transform.forward;
@@ -153,25 +156,20 @@ private void OnCollisionStay(Collision collision)
     {
         if (!grounded)
         {
-            Debug.Log("Jump failed - not grounded");
+            GameLogger.LogMovement("Jump failed - not grounded", LogType.Warning);
             return;
         }
         
-        Debug.Log("Jump initiated");
+        GameLogger.LogMovement("Jump initiated");
         
-        // Reset y velocity
         rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-        
-        // Apply jump force
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         
         if (playerAnimator != null)
         {
-            Debug.Log("Triggering jump animation");
             playerAnimator.TriggerJump();
         }
         
-        // Ensure ground check is temporarily disabled
         grounded = false;
     }
 
