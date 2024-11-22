@@ -1,22 +1,24 @@
-using UnityEngine;
-
 public class VictoryState : IAnimationState
 {
     private PlayerAnimator playerAnimator;
 
     public VictoryState(PlayerAnimator animator)
     {
+        GameLogger.LogState("Initializing VictoryState");
         playerAnimator = animator;
     }
 
     public void Enter()
     {
+        GameLogger.LogState("Entering VictoryState");
+        GameLogger.LogAnimation("Playing victory animation");
         playerAnimator.SetAnimationState(AnimationState.Victory);
     }
 
     public void HandleInput()
     {
-        // Typically, Victory state doesn't transition unless resetting
+        // Victory state doesn't transition unless resetting
+        GameLogger.LogState("VictoryState - ignoring input handling", LogType.Log);
     }
 
     public void UpdateState()
@@ -26,6 +28,6 @@ public class VictoryState : IAnimationState
 
     public void Exit()
     {
-        // Cleanup when exiting Victory State
+        GameLogger.LogState("Exiting VictoryState");
     }
 }
