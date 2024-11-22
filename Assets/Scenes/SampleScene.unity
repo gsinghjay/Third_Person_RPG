@@ -3419,7 +3419,7 @@ MonoBehaviour:
   moveSpeed: 7
   rotationSpeed: 10
   groundDrag: 5
-  jumpForce: 7
+  jumpForce: 6
   jumpCooldown: 0.25
   airMultiplier: 0.4
   playerHeight: 1.4
