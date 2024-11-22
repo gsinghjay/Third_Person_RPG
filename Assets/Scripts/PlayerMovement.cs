@@ -34,6 +34,13 @@ public class PlayerMovement : MonoBehaviour
     private bool grounded;
     private bool readyToJump = true;
 
+    private Vector2 moveInput;
+    private bool jumpRequested;
+    private Vector3 targetMoveDirection;
+    private Vector3 currentVelocity;
+    private float targetRotation;
+    private float rotationVelocity;
+
     private void Start()
     {
         // Get components
@@ -74,20 +81,139 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
+        // Handle input
+        ProcessInput();
+        
         // Ground check
         grounded = CheckGround();
         
-        MyInput();
+        // Update animation states
+        UpdateAnimationState();
+    }
+
+    private void FixedUpdate()
+    {
+        // Handle physics-based movement
+        ProcessMovement();
         
-        // Handle drag
+        // Apply drag
+        ApplyGroundDrag();
+        
+        // Handle jumping physics
+        ProcessJump();
+        
+        // Enforce speed limits
+        ClampVelocity();
+    }
+
+    private void ProcessInput()
+    {
+        // Cache input values
+        moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        
+        // Handle jump input
+        if (Input.GetKeyDown(jumpKey) && grounded && readyToJump)
+        {
+            jumpRequested = true;
+        }
+
+        // Calculate move direction relative to camera
+        Vector3 forward = Camera.main.transform.forward;
+        Vector3 right = Camera.main.transform.right;
+        forward.y = 0;
+        right.y = 0;
+        
+        targetMoveDirection = (forward.normalized * moveInput.y + right.normalized * moveInput.x).normalized;
+    }
+
+    private void ProcessMovement()
+    {
+        if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
+        {
+            rb.velocity = new Vector3(0, rb.velocity.y, 0);
+            return;
+        }
+
+        if (targetMoveDirection != Vector3.zero)
+        {
+            // Calculate target rotation
+            targetRotation = Mathf.Atan2(targetMoveDirection.x, targetMoveDirection.z) * Mathf.Rad2Deg;
+            
+            // Smooth rotation
+            float rotation = Mathf.SmoothDampAngle(
+                transform.eulerAngles.y,
+                targetRotation,
+                ref rotationVelocity,
+                0.1f
+            );
+            
+            transform.rotation = Quaternion.Euler(0, rotation, 0);
+        }
+
+        // Calculate target velocity
+        float multiplier = grounded ? 1f : airMultiplier;
+        Vector3 targetVelocity = targetMoveDirection * moveSpeed * multiplier;
+        
+        // Smoothly interpolate to target velocity
+        currentVelocity = Vector3.Lerp(
+            currentVelocity,
+            targetVelocity,
+            Time.fixedDeltaTime * 15f
+        );
+
+        // Apply horizontal velocity
+        rb.velocity = new Vector3(currentVelocity.x, rb.velocity.y, currentVelocity.z);
+    }
+
+    private void ProcessJump()
+    {
+        if (jumpRequested && grounded && readyToJump)
+        {
+            jumpRequested = false;
+            
+            // Reset vertical velocity
+            rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+            
+            // Apply jump force
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            
+            if (playerAnimator != null)
+            {
+                playerAnimator.TriggerJump();
+            }
+            
+            grounded = false;
+            StartCoroutine(JumpCooldownRoutine());
+        }
+    }
+
+    private void ApplyGroundDrag()
+    {
         rb.drag = grounded ? groundDrag : 0f;
     }
 
-private void FixedUpdate()
-{
-    MovePlayer();
-    SpeedControl();
-}
+    private void ClampVelocity()
+    {
+        Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        if (flatVel.magnitude > moveSpeed)
+        {
+            Vector3 limitedVel = flatVel.normalized * moveSpeed;
+            rb.velocity = new Vector3(limitedVel.x, rb.velocity.y, limitedVel.z);
+        }
+    }
+
+    private void UpdateAnimationState()
+    {
+        if (playerAnimator != null)
+        {
+            bool isMoving = moveInput.magnitude > 0.1f;
+            playerAnimator.SetIsMoving(isMoving);
+            if (isMoving)
+            {
+                playerAnimator.SetMovementSpeed(moveInput.magnitude);
+            }
+        }
+    }
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -104,112 +230,8 @@ private void FixedUpdate()
         }
     }
 
-private void OnCollisionStay(Collision collision)
-{
-}
-
-    private void MyInput()
+    private void OnCollisionStay(Collision collision)
     {
-        horizontalInput = Input.GetAxisRaw("Horizontal");
-        verticalInput = Input.GetAxisRaw("Vertical");
-
-        // Handle movement animation
-        bool isMoving = (Mathf.Abs(horizontalInput) > 0.1f || Mathf.Abs(verticalInput) > 0.1f);
-        if (playerAnimator != null)
-        {
-            playerAnimator.SetIsMoving(isMoving);
-            if (isMoving)
-            {
-                float movementMagnitude = new Vector2(horizontalInput, verticalInput).magnitude;
-                playerAnimator.SetMovementSpeed(movementMagnitude);
-            }
-        }
-
-        // Handle jumping
-        if (Input.GetKeyDown(jumpKey) && grounded)
-        {
-            Debug.Log($"Jump attempt - readyToJump: {readyToJump}, grounded: {grounded}");
-            Jump();
-        }
-    }
-
-    private void MovePlayer()
-    {
-        if (playerAnimator != null && (playerAnimator.IsDead || playerAnimator.IsVictorious))
-        {
-            GameLogger.LogMovement("Movement blocked - player dead or victorious");
-            return;
-        }
-
-        // Calculate movement direction relative to camera
-        Vector3 forward = Camera.main.transform.forward;
-        Vector3 right = Camera.main.transform.right;
-        
-        // Keep movement on the ground plane
-        forward.y = 0;
-        right.y = 0;
-        forward.Normalize();
-        right.Normalize();
-        
-        moveDirection = (forward * verticalInput + right * horizontalInput).normalized;
-
-        // Only rotate if there's movement input
-        if (moveDirection != Vector3.zero)
-        {
-            transform.rotation = Quaternion.Lerp(
-                transform.rotation,
-                Quaternion.LookRotation(moveDirection),
-                Time.deltaTime * rotationSpeed
-            );
-        }
-
-        // Apply movement force
-        float multiplier = grounded ? 1f : airMultiplier;
-        rb.velocity = new Vector3(
-            moveDirection.x * moveSpeed * multiplier,
-            rb.velocity.y,
-            moveDirection.z * moveSpeed * multiplier
-        );
-    }
-
-    private void Jump()
-    {
-        if (!grounded)
-        {
-            GameLogger.LogMovement("Jump failed - not grounded", LogType.Warning);
-            return;
-        }
-        
-        if (!readyToJump)
-        {
-            GameLogger.LogMovement("Jump failed - on cooldown", LogType.Warning);
-            return;
-        }
-        
-        GameLogger.LogMovement("Jump initiated");
-        
-        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-        
-        if (playerAnimator != null)
-        {
-            playerAnimator.TriggerJump();
-        }
-        
-        grounded = false;
-        StartCoroutine(JumpCooldownRoutine());
-    }
-
-    private void SpeedControl()
-    {
-        // Limit velocity if needed
-        Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-        
-        if (flatVel.magnitude > moveSpeed)
-        {
-            Vector3 limitedVel = flatVel.normalized * moveSpeed;
-            rb.velocity = new Vector3(limitedVel.x, rb.velocity.y, limitedVel.z);
-        }
     }
 
     private IEnumerator JumpCooldownRoutine()
