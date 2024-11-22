@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -109,7 +110,6 @@ private void OnCollisionStay(Collision collision)
         {
             Debug.Log($"Jump attempt - readyToJump: {readyToJump}, grounded: {grounded}");
             Jump();
-            Invoke(nameof(ResetJump), jumpCooldown);
         }
     }
 
@@ -160,6 +160,12 @@ private void OnCollisionStay(Collision collision)
             return;
         }
         
+        if (!readyToJump)
+        {
+            GameLogger.LogMovement("Jump failed - on cooldown", LogType.Warning);
+            return;
+        }
+        
         GameLogger.LogMovement("Jump initiated");
         
         rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
@@ -171,6 +177,7 @@ private void OnCollisionStay(Collision collision)
         }
         
         grounded = false;
+        StartCoroutine(JumpCooldownRoutine());
     }
 
     private void SpeedControl()
@@ -185,9 +192,12 @@ private void OnCollisionStay(Collision collision)
         }
     }
 
-    private void ResetJump()
+    private IEnumerator JumpCooldownRoutine()
     {
+        readyToJump = false;
+        yield return new WaitForSeconds(jumpCooldown);
         readyToJump = true;
+        GameLogger.LogMovement("Jump cooldown finished");
     }
 
     public bool IsGrounded()
