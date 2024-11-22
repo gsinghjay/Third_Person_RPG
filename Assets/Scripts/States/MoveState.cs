@@ -1,52 +1,37 @@
-public class MoveState : IAnimationState
+public class MoveState : AnimationStateBase
 {
-    private PlayerAnimator playerAnimator;
+    public MoveState(PlayerAnimator animator) : base(animator) { }
 
-    public MoveState(PlayerAnimator animator)
+    public override void Enter()
     {
-        GameLogger.LogState("Initializing MoveState");
-        playerAnimator = animator;
-    }
-
-    public void Enter()
-    {
-        GameLogger.LogState("Entering MoveState");
+        base.Enter();
         GameLogger.LogAnimation("Setting movement animation");
         playerAnimator.SetIsMoving(true);
     }
 
-    public void HandleInput()
+    public override void HandleInput()
     {
         if (!playerAnimator.IsMoving)
         {
-            GameLogger.LogState("MoveState - Transitioning to IdleState");
-            playerAnimator.ChangeState(new IdleState(playerAnimator));
+            TransitionToState(new IdleState(playerAnimator));
         }
         else if (playerAnimator.IsJumping)
         {
-            GameLogger.LogState("MoveState - Transitioning to JumpState");
-            playerAnimator.ChangeState(new JumpState(playerAnimator));
+            TransitionToState(new JumpState(playerAnimator));
         }
         else if (playerAnimator.IsVictorious)
         {
-            GameLogger.LogState("MoveState - Transitioning to VictoryState");
-            playerAnimator.ChangeState(new VictoryState(playerAnimator));
+            TransitionToState(new VictoryState(playerAnimator));
         }
         else if (playerAnimator.IsDead)
         {
-            GameLogger.LogState("MoveState - Transitioning to DieState");
-            playerAnimator.ChangeState(new DieState(playerAnimator));
+            TransitionToState(new DieState(playerAnimator));
         }
     }
 
-    public void UpdateState()
+    public override void UpdateState()
     {
         GameLogger.LogAnimation($"Updating movement speed to {playerAnimator.CurrentSpeed:F2}");
         playerAnimator.SetMovementSpeed(playerAnimator.CurrentSpeed);
-    }
-
-    public void Exit()
-    {
-        GameLogger.LogState("Exiting MoveState");
     }
 }

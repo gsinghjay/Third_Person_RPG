@@ -1,33 +1,17 @@
-public class VictoryState : IAnimationState
+public class VictoryState : AnimationStateBase
 {
-    private PlayerAnimator playerAnimator;
+    public VictoryState(PlayerAnimator animator) : base(animator) { }
 
-    public VictoryState(PlayerAnimator animator)
+    public override void Enter()
     {
-        GameLogger.LogState("Initializing VictoryState");
-        playerAnimator = animator;
-    }
-
-    public void Enter()
-    {
-        GameLogger.LogState("Entering VictoryState");
+        base.Enter();
         GameLogger.LogAnimation("Playing victory animation");
         playerAnimator.SetAnimationState(AnimationState.Victory);
     }
 
-    public void HandleInput()
+    public override void HandleInput()
     {
         // Victory state doesn't transition unless resetting
         GameLogger.LogState("VictoryState - ignoring input handling", LogType.Log);
-    }
-
-    public void UpdateState()
-    {
-        // Victory-specific update logic if needed
-    }
-
-    public void Exit()
-    {
-        GameLogger.LogState("Exiting VictoryState");
     }
 }

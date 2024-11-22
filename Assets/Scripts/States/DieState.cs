@@ -1,32 +1,21 @@
-public class DieState : IAnimationState
+public class DieState : AnimationStateBase
 {
-    private PlayerAnimator playerAnimator;
+    public DieState(PlayerAnimator animator) : base(animator) { }
 
-    public DieState(PlayerAnimator animator)
+    public override void Enter()
     {
-        GameLogger.LogState("Initializing DieState");
-        playerAnimator = animator;
-    }
-
-    public void Enter()
-    {
-        GameLogger.LogState("Entering DieState");
+        base.Enter();
         GameLogger.LogAnimation("Playing death animation");
         playerAnimator.SetAnimationState(AnimationState.Die);
     }
 
-    public void HandleInput()
+    public override void HandleInput()
     {
         // No transitions from death state
         GameLogger.LogState("DieState - ignoring input handling", LogType.Log);
     }
 
-    public void UpdateState()
-    {
-        // No updates needed in death state
-    }
-
-    public void Exit()
+    public override void Exit()
     {
         GameLogger.LogState("Exiting DieState - This shouldn't happen!", LogType.Warning);
     }
