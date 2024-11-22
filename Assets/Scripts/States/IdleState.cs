@@ -1,50 +1,30 @@
-public class IdleState : IAnimationState
+public class IdleState : AnimationStateBase
 {
-    private PlayerAnimator playerAnimator;
+    public IdleState(PlayerAnimator animator) : base(animator) { }
 
-    public IdleState(PlayerAnimator animator)
+    public override void Enter()
     {
-        GameLogger.LogState("Initializing IdleState");
-        playerAnimator = animator;
-    }
-
-    public void Enter()
-    {
-        GameLogger.LogState("Entering IdleState");
+        base.Enter();
         playerAnimator.SetIsMoving(false);
     }
 
-    public void HandleInput()
+    public override void HandleInput()
     {
         if (playerAnimator.IsMoving)
         {
-            GameLogger.LogState("IdleState - Transitioning to MoveState");
-            playerAnimator.ChangeState(new MoveState(playerAnimator));
+            TransitionToState(new MoveState(playerAnimator));
         }
         else if (playerAnimator.IsJumping)
         {
-            GameLogger.LogState("IdleState - Transitioning to JumpState");
-            playerAnimator.ChangeState(new JumpState(playerAnimator));
+            TransitionToState(new JumpState(playerAnimator));
         }
         else if (playerAnimator.IsVictorious)
         {
-            GameLogger.LogState("IdleState - Transitioning to VictoryState");
-            playerAnimator.ChangeState(new VictoryState(playerAnimator));
+            TransitionToState(new VictoryState(playerAnimator));
         }
         else if (playerAnimator.IsDead)
         {
-            GameLogger.LogState("IdleState - Transitioning to DieState");
-            playerAnimator.ChangeState(new DieState(playerAnimator));
+            TransitionToState(new DieState(playerAnimator));
         }
-    }
-
-    public void UpdateState()
-    {
-        // Idle state specific updates if needed
-    }
-
-    public void Exit()
-    {
-        GameLogger.LogState("Exiting IdleState");
     }
 }
