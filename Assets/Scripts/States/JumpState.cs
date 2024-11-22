@@ -18,47 +18,47 @@ public class JumpState : IAnimationState
 
     public void Enter()
     {
-        Debug.Log("JumpState Enter - Setting animation state to Jumping");
+        GameLogger.LogState("Entering JumpState");
         playerAnimator.SetAnimationState(AnimationState.Jumping);
     }
 
-public void HandleInput()
-{
-    if (playerMovement == null)
+    public void HandleInput()
     {
-        Debug.LogError("HandleInput - playerMovement is null");
-        return;
-    }
-
-    // Check if we've landed
-    if (playerMovement.IsGrounded())
-    {
-        Debug.Log("JumpState HandleInput - Player has landed");
-        playerAnimator.TriggerLand();  // Reset IsJumping
-        
-        // Transition to appropriate state based on movement
-        if (playerAnimator.IsMoving)
+        if (playerMovement == null)
         {
-            playerAnimator.ChangeState(new MoveState(playerAnimator));
-        }
-        else
-        {
-            playerAnimator.ChangeState(new IdleState(playerAnimator));
+            Debug.LogError("HandleInput - playerMovement is null");
+            return;
         }
 
-        if (playerAnimator.IsDead)
+        // Check if we've landed
+        if (playerMovement.IsGrounded())
         {
-            Debug.Log("JumpState HandleInput - Transitioning to DieState");
-            playerAnimator.ChangeState(new DieState(playerAnimator));
+            Debug.Log("JumpState HandleInput - Player has landed");
+            playerAnimator.TriggerLand();  // Reset IsJumping
+            
+            // Transition to appropriate state based on movement
+            if (playerAnimator.IsMoving)
+            {
+                playerAnimator.ChangeState(new MoveState(playerAnimator));
+            }
+            else
+            {
+                playerAnimator.ChangeState(new IdleState(playerAnimator));
+            }
+
+            if (playerAnimator.IsDead)
+            {
+                Debug.Log("JumpState HandleInput - Transitioning to DieState");
+                playerAnimator.ChangeState(new DieState(playerAnimator));
+            }
+            else if (playerAnimator.IsVictorious)
+            {
+                Debug.Log("JumpState HandleInput - Transitioning to VictoryState");
+                playerAnimator.ChangeState(new VictoryState(playerAnimator));
+            }
+            return;
         }
-        else if (playerAnimator.IsVictorious)
-        {
-            Debug.Log("JumpState HandleInput - Transitioning to VictoryState");
-            playerAnimator.ChangeState(new VictoryState(playerAnimator));
-        }
-        return;
     }
-}
     public void UpdateState()
     {
         // Update movement speed during jump
@@ -70,6 +70,6 @@ public void HandleInput()
 
     public void Exit()
     {
-        // No cleanup needed
+        GameLogger.LogState("Exiting JumpState");
     }
 }

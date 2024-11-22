@@ -80,8 +80,13 @@ public class PlayerAnimator : MonoBehaviour
     public void ChangeState(IAnimationState newState)
     {
         if (currentState != null && currentState.GetType() == newState.GetType())
-            return; // Prevent changing to the same state
+        {
+            GameLogger.LogState("Prevented transition to same state type", LogType.Warning);
+            return;
+        }
 
+        GameLogger.LogState($"Changing from {currentState?.GetType().Name ?? "null"} to {newState.GetType().Name}");
+        
         if (currentState != null)
             currentState.Exit();
 
@@ -93,6 +98,7 @@ public class PlayerAnimator : MonoBehaviour
     {
         if (!isDead && !isVictorious)
         {
+            GameLogger.LogAnimation("Triggering jump animation");
             isJumping = true;
             SetAnimationState(AnimationState.Jumping);
             ChangeState(new JumpState(this));

@@ -1,31 +1,33 @@
-using UnityEngine;
-
 public class DieState : IAnimationState
 {
     private PlayerAnimator playerAnimator;
 
     public DieState(PlayerAnimator animator)
     {
+        GameLogger.LogState("Initializing DieState");
         playerAnimator = animator;
     }
 
     public void Enter()
     {
+        GameLogger.LogState("Entering DieState");
+        GameLogger.LogAnimation("Playing death animation");
         playerAnimator.SetAnimationState(AnimationState.Die);
     }
 
     public void HandleInput()
     {
-        // Typically, Die state doesn't transition unless restarting
+        // No transitions from death state
+        GameLogger.LogState("DieState - ignoring input handling", LogType.Log);
     }
 
     public void UpdateState()
     {
-        // Die-specific update logic if needed
+        // No updates needed in death state
     }
 
     public void Exit()
     {
-        // Cleanup when exiting Die State
+        GameLogger.LogState("Exiting DieState - This shouldn't happen!", LogType.Warning);
     }
 }
