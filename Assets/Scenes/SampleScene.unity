@@ -1047,6 +1047,13 @@ MonoBehaviour:
   playerObj: {fileID: 591683579}
   rb: {fileID: 1053771453}
   freeLookCam: {fileID: 600671644}
+  minRadius: 6
+  maxRadius: 10
+  radiusTransitionSpeed: 5
+  maxPlayerSpeed: 10
+  combatFOV: 60
+  normalFOV: 50
+  fovTransitionSpeed: 3
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
