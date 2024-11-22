@@ -41,13 +41,19 @@ public class BearHealth : MonoBehaviour
     
     public void TakeDamage(float damage)
     {
-        if (isDead) return;
+        if (isDead)
+        {
+            GameLogger.LogCombat("Damage ignored - bear is already dead");
+            return;
+        }
         
         currentHealth -= damage;
+        GameLogger.LogCombat($"Bear took {damage} damage. Current health: {currentHealth}");
         
         if (currentHealth <= 0)
         {
             isDead = true;
+            GameLogger.LogCombat("Bear died");
             Die();
         }
         else

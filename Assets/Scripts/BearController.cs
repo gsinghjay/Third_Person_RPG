@@ -138,7 +138,7 @@ public class BearController : MonoBehaviour
 
     private void ChangeState(BearState newState)
     {
-        Debug.Log($"Bear changing state from {currentState} to {newState}");
+        GameLogger.LogState($"Bear changing state from {currentState} to {newState}");
         currentState = newState;
         stateEnterTime = Time.time;
         
@@ -222,6 +222,7 @@ public class BearController : MonoBehaviour
     {
         if (distanceToPlayer > detectionRange)
         {
+            GameLogger.LogCombat($"Bear leaving combat - distance to player: {distanceToPlayer:F2}");
             ChangeState(BearState.ReturningToSpawn);
             return;
         }
