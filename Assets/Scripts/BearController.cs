@@ -5,13 +5,37 @@ using System.Collections;
 [RequireComponent(typeof(NavMeshAgent), typeof(Animator))]
 public class BearController : MonoBehaviour
 {
-    // Cache string hashes for better WebGL performance
-    private static readonly int HASH_IDLE = Animator.StringToHash("Idle");
-    private static readonly int HASH_RUN = Animator.StringToHash("Run Forward");
-    private static readonly int HASH_ATTACK1 = Animator.StringToHash("Attack1");
-    private static readonly int HASH_ATTACK2 = Animator.StringToHash("Attack2");
-    private static readonly int HASH_SLEEP = Animator.StringToHash("Sleep");
-    private static readonly int HASH_HIT = Animator.StringToHash("Get Hit Front");
+    [System.Serializable]
+    private class BearAnimation
+    {
+        public string name;
+        public AnimationType type;
+        public int hash; // Store the hashed ID
+
+        public BearAnimation(string name, AnimationType type)
+        {
+            this.name = name;
+            this.type = type;
+            this.hash = Animator.StringToHash(name);
+        }
+    }
+
+    private enum AnimationType
+    {
+        Trigger,
+        Bool
+    }
+
+    // Replace individual hash fields with organized collection
+    private readonly BearAnimation[] bearAnimations = new[]
+    {
+        new BearAnimation("Idle", AnimationType.Trigger),
+        new BearAnimation("Run Forward", AnimationType.Trigger),
+        new BearAnimation("Attack1", AnimationType.Trigger),
+        new BearAnimation("Attack2", AnimationType.Trigger),
+        new BearAnimation("Sleep", AnimationType.Trigger),
+        new BearAnimation("Get Hit Front", AnimationType.Trigger)
+    };
     
     [Header("Detection Settings")]
     [SerializeField] private float detectionRange = 10f;
@@ -80,6 +104,38 @@ public class BearController : MonoBehaviour
         isInitialized = true;
     }
 
+    private void PlayAnimation(string animationName)
+    {
+        var animation = System.Array.Find(bearAnimations, a => a.name == animationName);
+        if (animation == null) return;
+
+        ResetAllAnimations();
+
+        if (animation.type == AnimationType.Bool)
+        {
+            animator.SetBool(animation.hash, true);
+        }
+        else
+        {
+            animator.SetTrigger(animation.hash);
+        }
+    }
+
+    private void ResetAllAnimations()
+    {
+        foreach (var animation in bearAnimations)
+        {
+            if (animation.type == AnimationType.Bool)
+            {
+                animator.SetBool(animation.hash, false);
+            }
+            else
+            {
+                animator.ResetTrigger(animation.hash);
+            }
+        }
+    }
+
     private void ChangeState(BearState newState)
     {
         Debug.Log($"Bear changing state from {currentState} to {newState}");
@@ -89,15 +145,13 @@ public class BearController : MonoBehaviour
         switch (newState)
         {
             case BearState.Sleeping:
-                ResetAllTriggers();
-                animator.SetTrigger(HASH_SLEEP);
+                PlayAnimation("Sleep");
                 agent.isStopped = true;
                 agent.speed = patrolMovementSpeed;
                 break;
                 
             case BearState.WakingUp:
-                ResetAllTriggers();
-                animator.SetTrigger(HASH_IDLE);
+                PlayAnimation("Idle");
                 agent.isStopped = true;
                 break;
                 
@@ -107,8 +161,7 @@ public class BearController : MonoBehaviour
                 break;
                 
             case BearState.ReturningToSpawn:
-                ResetAllTriggers();
-                animator.SetTrigger(HASH_RUN);
+                PlayAnimation("Run Forward");
                 agent.speed = patrolMovementSpeed;
                 agent.isStopped = false;
                 break;
@@ -169,7 +222,6 @@ public class BearController : MonoBehaviour
     {
         if (distanceToPlayer > detectionRange)
         {
-            ResetAllTriggers();
             ChangeState(BearState.ReturningToSpawn);
             return;
         }
@@ -181,7 +233,7 @@ public class BearController : MonoBehaviour
         {
             agent.SetDestination(targetPosition);
             agent.isStopped = false;
-            animator.SetTrigger(HASH_RUN);
+            PlayAnimation("Run Forward");
         }
         else
         {
@@ -198,8 +250,7 @@ public class BearController : MonoBehaviour
         
         if (distanceToPlayer <= attackRange && Time.time >= nextAttackTime)
         {
-            ResetAllTriggers();
-            animator.SetTrigger(Random.value > 0.5f ? HASH_ATTACK1 : HASH_ATTACK2);
+            PlayAnimation(Random.value > 0.5f ? "Attack1" : "Attack2");
             nextAttackTime = Time.time + attackCooldown;
         }
     }
@@ -226,22 +277,12 @@ public class BearController : MonoBehaviour
         // Move towards spawn point
         agent.SetDestination(spawnPosition);
         agent.isStopped = false;
-        animator.SetTrigger(HASH_RUN);
-    }
-    
-    private void ResetAllTriggers()
-    {
-        animator.ResetTrigger(HASH_IDLE);
-        animator.ResetTrigger(HASH_RUN);
-        animator.ResetTrigger(HASH_ATTACK1);
-        animator.ResetTrigger(HASH_ATTACK2);
-        animator.ResetTrigger(HASH_SLEEP);
-        animator.ResetTrigger(HASH_HIT);
+        PlayAnimation("Run Forward");
     }
     
     public void TakeDamage()
     {
-        animator.SetTrigger(HASH_HIT);
+        PlayAnimation("Get Hit Front");
         if (currentState == BearState.Sleeping)
         {
             ChangeState(BearState.WakingUp);
