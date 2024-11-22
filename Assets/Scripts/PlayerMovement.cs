@@ -48,20 +48,40 @@ public class PlayerMovement : MonoBehaviour
         Cursor.visible = false;
     }
 
-private void Update()
-{
-    // Ground check
-    grounded = Physics.CheckSphere(
-        transform.position - new Vector3(0, playerHeight * 0.5f, 0),
-        groundCheckRadius,
-        groundLayer
-    );
-    
-    MyInput();
-    
-    // Handle drag
-    rb.drag = grounded ? groundDrag : 0f;
-}
+    private bool CheckGround()
+    {
+        // Center position for ground checks
+        Vector3 spherePosition = transform.position - new Vector3(0, playerHeight * 0.5f, 0);
+        
+        // Primary raycast check
+        bool raycastHit = Physics.Raycast(
+            transform.position,
+            Vector3.down,
+            out RaycastHit hit,
+            playerHeight * 0.5f + groundCheckDistance,
+            groundLayer
+        );
+
+        // Secondary spherecast for better edge detection
+        bool spherecastHit = Physics.CheckSphere(
+            spherePosition,
+            groundCheckRadius,
+            groundLayer
+        );
+
+        return raycastHit || spherecastHit;
+    }
+
+    private void Update()
+    {
+        // Ground check
+        grounded = CheckGround();
+        
+        MyInput();
+        
+        // Handle drag
+        rb.drag = grounded ? groundDrag : 0f;
+    }
 
 private void FixedUpdate()
 {
@@ -207,11 +227,17 @@ private void OnCollisionStay(Collision collision)
 
     private void OnDrawGizmosSelected()
     {
-        // Visualize ground check
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(
-            transform.position - new Vector3(0, playerHeight * 0.5f, 0),
-            groundCheckRadius
+        Vector3 spherePosition = transform.position - new Vector3(0, playerHeight * 0.5f, 0);
+        
+        // Visualize raycast
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(
+            transform.position,
+            transform.position + Vector3.down * (playerHeight * 0.5f + groundCheckDistance)
         );
+        
+        // Visualize sphere check
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(spherePosition, groundCheckRadius);
     }
 }
